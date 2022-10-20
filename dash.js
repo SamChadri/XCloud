@@ -8,13 +8,20 @@ let fft;
 let se_history = [] ;
 let secondBeat = false;
 let bpms = [];
+let waveform;
 //Do Something with the bpm later when I really start working with transport.
 let bpm = 120
+
+function preload(){
+    track1 = loadSound('assets/DrakeOverdrive.wav');
+
+}
+
+
 function setup(){
-    createCanvas(400, 400);
+    createCanvas(800, 1000);
     whiteNoise.amp(0.1);
 
-    track1 = loadSound('assets/DrakeOverdrive.wav')
     fft = new p5.FFT();
 
     playButton = createButton("play");
@@ -67,18 +74,46 @@ function onStopClicked(){
 function draw(){
     background(220);
     let spectrum = fft.analyze();
+    //---------------------------------------------------------------console.log(spectrum);
+    
+    var waveform = track1.getPeaks(500);
+    stroke(0)
+    for (var i = 0; i< waveform.length; i++){
+      var x = map(i, 0, waveform.length, 0, width);
+      var y = height/2;
+      var w = 1;
+      var h = map(waveform[i], -1, 1, 300, 0);
+      line(x , 150, x + 0, h);
+    }
+
+
     beginShape();
-    vertex(0, 0);
+    vertex(0, 400);
     let sum = 0 ;
-    //console.log(spectrum);
+    //-----------------------------------------------------------------
     for(let i =0; i< spectrum.length; i++)
     {
         sum += spectrum[i];
         
-        vertex(map(log(i), 0, log(spectrum.length), 0, width), map(spectrum[i], 0, 255, height, 0));
+        vertex(map(log(i), 0, log(spectrum.length), 0, width), map(spectrum[i], 0, 255, 600, 400));
     }
 
-    var avg =Math.floor( sum / spectrum.length);
+    var avg = Math.floor( sum / spectrum.length);
+
+    vertex(width, 400)
+    endShape();
+
+    drawPlayHead();
+    //point(10,spectrum[0]);
+}
+
+function drawPlayHead(){
+    stroke("red")
+    rect(map(track1.currentTime(), 0, track1.duration(), 0, width), 0, 5, 300);
+}
+
+
+function detectBpm(avg){
     if( avg > 50 && track1.isPlaying()){
         //We found a beat!
         var time = track1.currentTime();
@@ -124,8 +159,4 @@ function draw(){
 
 
     }
-    se_history.append
-    vertex(width, 0)
-    endShape();
-    //point(10,spectrum[0]);
 }
