@@ -9,20 +9,116 @@ let se_history = [] ;
 let secondBeat = false;
 let bpms = [];
 let waveform;
+let keyboardMapping = {
+    65: 'C',
+    83: 'D',
+    68: 'E',
+    70: 'F',
+    71: 'G',
+    72: 'A',
+    74: 'B',
+    87: 'C#',
+    69: 'D#',
+    84: 'F#',
+    89: 'G#',
+    85: 'A#'
+}
+
+let noteFreqMapping = {
+    'C': 261.63,
+    'D': 293.66,
+    'E': 329.63,
+    'F': 349.23,
+    'G': 392.00,
+    'A': 440.00,
+    'B': 493.88,
+    'C#': 277.18,
+    'D#': 311.13,
+    'F#': 369.99,
+    'G#': 415.30,
+    'A#': 466.16
+
+}
 //Do Something with the bpm later when I really start working with transport.
-let bpm = 120
+let bpm = 120;
+
+let clickNote;
+let keyNote;
+const keys = document.querySelectorAll('.key');
+
+
+const whiteNotes = document.querySelectorAll('.key.white');
+const blackNotes = document.querySelectorAll('.key.black')
 
 function preload(){
-    track1 = loadSound('assets/DrakeOverdrive.wav');
+    track1 = loadSound('assets/hardBall.mp3');
 
 }
 
 
 function setup(){
-    createCanvas(800, 1000);
+    createCanvas(600, 800);
     whiteNoise.amp(0.1);
 
     fft = new p5.FFT();
+
+    osc = new p5.TriOsc(); // set frequency and type
+    
+    osc.amp(0.5);
+    envelope = new p5.Env();
+
+    // set attackTime, decayTime, sustainRatio, releaseTime
+    envelope.setADSR(0.001, 0.5, 0.1, 0.5);
+  
+    // set attackLevel, releaseLevel
+    envelope.setRange(1, 0);
+
+
+
+  
+    fft = new p5.FFT();
+
+    clickNote = (key) => {
+        osc.start();
+        const note = key.dataset.note;
+        let freq = noteFreqMapping[note];
+        osc.freq(freq);
+        envelope.play(osc, 0, 0.1);
+        //osc.stop();
+        console.log(note);
+
+        key.classList.add('playing');
+
+
+    };
+
+    keyNote = (e) => {
+        osc.start();
+        const note = keyboardMapping[e.keyCode];
+        let freq = noteFreqMapping[note];
+        osc.freq(freq);
+        envelope.play(osc, 0, 0.1);
+        console.log(note);
+        let key = document.querySelector(`.key[data-note="${note}"]`);
+        console.log(`.key[data-note="${note}"]`);
+        key.classList.add('playing');
+
+
+    };
+    console.log(whiteNotes);
+    keys.forEach((key) =>{
+        key.addEventListener('click', ()=>clickNote(key));
+    });
+
+    document.addEventListener('keydown', (e)=>keyNote(e));
+
+    keys.forEach((key) => {
+        key.addEventListener("transitionend", (e)=>{
+            if(e.propertyName !== "transform") return;
+            console.log(e);
+            e.target.classList.remove("playing");
+        });
+    });
 
     playButton = createButton("play");
     playButton.position(10,30);
