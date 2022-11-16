@@ -2,6 +2,10 @@
 let whiteNoise = new p5.Noise();
 let playButton;
 let stopButton;
+
+let startTransportButton;
+let stopTransportButton;
+
 let track1;
 let volumeSlider;
 let fft;
@@ -9,6 +13,21 @@ let se_history = [] ;
 let secondBeat = false;
 let bpms = [];
 let waveform;
+
+let trackHeight;
+let trackWidth;
+
+let transportLoopLength = 240;
+
+//I GET A CONNECT NOT DEFINED ERROR, DONT KNOW WHY
+//const synth = new Tone.Oscillator().start();
+//oscillator.connect(Tone.getDestination());
+
+const player = new Tone.Player();
+//player.load("https://tonejs.github.io/audio/berklee/femalevoice_oo_A4.mp3");
+
+console.log(`TEST PLAYER: ${player} `);
+console.log(`TEST PLAYER LOADED: ${player.loaded}`);
 let keyboardMapping = {
     65: 'C',
     83: 'D',
@@ -39,6 +58,12 @@ let noteFreqMapping = {
     'A#': 466.16
 
 }
+
+let wavesurfer = WaveSurfer.create({
+    container: '#waveform'
+});
+
+wavesurfer.load('assets/DrakeOverdrive.wav');
 //Do Something with the bpm later when I really start working with transport.
 let bpm = 120;
 
@@ -46,12 +71,19 @@ let clickNote;
 let keyNote;
 const keys = document.querySelectorAll('.key');
 
+let p5Track1;
+let toneTrack1;
+let trackNum = 1;
 
 const whiteNotes = document.querySelectorAll('.key.white');
 const blackNotes = document.querySelectorAll('.key.black')
 
 function preload(){
     track1 = loadSound('assets/hardBall.mp3');
+    var tracks = loadTrack('assets/DrakeOverdrive.wav');
+
+    p5Track1 = tracks[0],
+    toneTrack1 = tracks[1];
 
 }
 
@@ -72,6 +104,10 @@ function setup(){
   
     // set attackLevel, releaseLevel
     envelope.setRange(1, 0);
+
+   // const osc1 = new Tone.Oscillator().toDestination();
+
+
 
 
 
@@ -123,11 +159,24 @@ function setup(){
     playButton = createButton("play");
     playButton.position(10,30);
     playButton.mousePressed(onPlayClicked);
+    //wavesurfer.play();
 
 
     stopButton = createButton("stop");
     stopButton.position(100,30);
     stopButton.mousePressed(onStopClicked);
+
+
+    startTransportButton = createButton("Start");
+    startTransportButton.position(10, height);
+    startTransportButton.mousePressed(onStartTransportClicked);
+
+    stopTransportButton = createButton("Cease");
+    stopTransportButton.position(100, height);
+    stopTransportButton.mousePressed(onStopTransportClicked);
+
+
+
 
     //var songSamplesPerBeat = 60/bpm * songSampleRate;
 
@@ -151,6 +200,20 @@ function setup(){
 
 }
 
+function loadTrack(url)
+{
+    var p5Track = loadSound(url);
+    var toneTrack = new Tone.Player({
+        'url': "https://tonejs.github.io/audio/loop/FWDL.mp3",
+        'loop':false,
+    }).toDestination().sync().start(0);
+    //PLAYER DOES NOT LOAD URL AT ALL
+    console.log(`Player: ${toneTrack}`);
+    console.log(`Player loaded: ${toneTrack.loaded}`);
+    toneTrack.autostart = true;
+    return [p5Track, toneTrack];
+}
+
 function onPlayClicked(){
     if(!track1.isPlaying()){
         track1.play();
@@ -166,6 +229,17 @@ function onStopClicked(){
         track1.pause();
     }
 }
+
+function onStartTransportClicked(){
+    Tone.Transport.start();
+
+}
+
+function onStopTransportClicked(){
+    Tone.Transport.stop();
+}
+
+
 
 function draw(){
     background(220);
@@ -183,6 +257,7 @@ function draw(){
     }
 
 
+    fill("white");
     beginShape();
     vertex(0, 400);
     let sum = 0 ;
@@ -200,12 +275,56 @@ function draw(){
     endShape();
 
     drawPlayHead();
+    drawTrack();
+    drawTransportPlayHead();
     //point(10,spectrum[0]);
+
+    drawSoundWave(p5Track1);
 }
 
+
+function drawTrack()
+{
+    stroke("red");
+    rect(0,650, width, 100);
+}
+
+function drawSoundWave(track)
+{
+
+    let soundWaveWidth = map(track.duration(), 0, transportLoopLength, 0, width);
+    let soundWaveHeight = 100;
+    let soundWaveX = 0;
+    let soundWaveY = 650;
+    stroke('#fae');
+    fill("black");
+    rect(soundWaveX, soundWaveY, soundWaveWidth, soundWaveHeight);
+    
+    var waveform = track.getPeaks(500);
+    stroke("pink");
+    for (var i = 0; i< waveform.length; i++){
+      var x = map(i, 0, waveform.length, 0, soundWaveWidth);
+      var w = 1;
+      var h = map(waveform[i], -1, 1, (soundWaveY + soundWaveHeight), soundWaveY);
+      var y = (soundWaveY + (soundWaveHeight+ soundWaveY)) / 2;
+      line(x , y, x + 0, h);
+    }
+
+}
+
+function drawTransportPlayHead()
+{  
+    stroke("green");
+    transportLoopLength = 240;
+    rect(map(Tone.Transport.seconds, 0, transportLoopLength, 0, width), 600, 2, 200);
+
+}
+
+
+
 function drawPlayHead(){
-    stroke("red")
-    rect(map(track1.currentTime(), 0, track1.duration(), 0, width), 0, 5, 300);
+    stroke("black")
+    rect(map(track1.currentTime(), 0, track1.duration(), 0, width), 0, 2, 300);
 }
 
 
