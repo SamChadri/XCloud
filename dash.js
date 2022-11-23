@@ -17,17 +17,24 @@ let waveform;
 let trackHeight;
 let trackWidth;
 
+let soundWaveX = 0;
+let soundWaveY;
+
+let overTrack;
+let lockTrack;
+
 let transportLoopLength = 240;
-
+//Tone.context.resume();
 //I GET A CONNECT NOT DEFINED ERROR, DONT KNOW WHY
-//const synth = new Tone.Oscillator().start();
-//oscillator.connect(Tone.getDestination());
+//const synth = new Tone.Synth().toMaster();
+				// play a note from that synth
+//synth.triggerAttackRelease("C4", "8n");
 
-const player = new Tone.Player();
-//player.load("https://tonejs.github.io/audio/berklee/femalevoice_oo_A4.mp3");
+//const player = new Tone.Player("https://tonejs.github.io/audio/berklee/femalevoice_oo_A4.mp3",function(){}).toMaster();
 
-console.log(`TEST PLAYER: ${player} `);
-console.log(`TEST PLAYER LOADED: ${player.loaded}`);
+//console.log(`TEST PLAYER: ${player} `);
+//player.autostart= true;
+
 let keyboardMapping = {
     65: 'C',
     83: 'D',
@@ -59,11 +66,35 @@ let noteFreqMapping = {
 
 }
 
+
+
 let wavesurfer = WaveSurfer.create({
     container: '#waveform'
 });
 
-wavesurfer.load('assets/DrakeOverdrive.wav');
+
+class Edit {
+    numTracks = 1;
+
+    constructor()
+    {
+
+    }
+
+    createTrack()
+    {
+
+    }
+}
+
+
+class Track 
+{
+    overTrack = false;
+
+}
+//wavesurfer.load('assets/DrakeOverdrive.wav');
+
 //Do Something with the bpm later when I really start working with transport.
 let bpm = 120;
 
@@ -71,8 +102,8 @@ let clickNote;
 let keyNote;
 const keys = document.querySelectorAll('.key');
 
-let p5Track1;
-let toneTrack1;
+var p5Track1;
+var toneTrack1;
 let trackNum = 1;
 
 const whiteNotes = document.querySelectorAll('.key.white');
@@ -107,7 +138,7 @@ function setup(){
 
    // const osc1 = new Tone.Oscillator().toDestination();
 
-
+    console.log("Calling p5-Setup")
 
 
 
@@ -199,18 +230,21 @@ function setup(){
 
 
 }
-
+let toneTrackId1;
 function loadTrack(url)
 {
     var p5Track = loadSound(url);
     var toneTrack = new Tone.Player({
-        'url': "https://tonejs.github.io/audio/loop/FWDL.mp3",
-        'loop':false,
-    }).toDestination().sync().start(0);
+        'url': "./assets/DrakeOverdrive.wav",
+        'loop':true,
+    }).toMaster().sync().start(0);
+    //toneTrackId1 = Tone.Transport.schedule((time) =>{
+    //    toneTrack.start();
+    //}, 0);
     //PLAYER DOES NOT LOAD URL AT ALL
-    console.log(`Player: ${toneTrack}`);
-    console.log(`Player loaded: ${toneTrack.loaded}`);
-    toneTrack.autostart = true;
+    console.log(`Player: ${toneTrack}, Start`);
+    //console.log(`Player loaded: ${toneTrack.loaded}`);
+    //toneTrack.autostart = true;
     return [p5Track, toneTrack];
 }
 
@@ -232,11 +266,13 @@ function onStopClicked(){
 
 function onStartTransportClicked(){
     Tone.Transport.start();
+    console.log("Starting transport...");
 
 }
 
 function onStopTransportClicked(){
     Tone.Transport.stop();
+    console.log("Stopping transport...");
 }
 
 
@@ -276,17 +312,89 @@ function draw(){
 
     drawPlayHead();
     drawTrack();
-    drawTransportPlayHead();
     //point(10,spectrum[0]);
 
     drawSoundWave(p5Track1);
+    drawTransportPlayHead();
+
 }
 
 
 function drawTrack()
 {
     stroke("red");
+    fill("grey");
     rect(0,650, width, 100);
+}
+//Change this to be in class later on 
+function trackHover(x, y, width, height)
+{
+    var endX = x + width;
+    var endY = y + height;
+    if(mouseX > x &&
+       mouseX < endX &&
+       mouseY > y &&
+       mouseY < endY)
+    {
+        stroke("white");
+        //fill("pink");
+        console.log("Inside Track 1");
+        return true;
+    }
+    else
+    {   
+        stroke("#fae");
+        fill("black");
+        return false
+    }
+    
+    
+
+}
+let xLock;
+let oldX;
+let startTime;
+function mousePressed()
+{
+    if(overTrack){
+        lockTrack = true;
+        fill("pink");
+        console.log("Clicked Track");
+        xLock = mouseX;
+        oldX = soundWaveX;
+    }
+    else{
+        lockTrack = false;
+    }
+
+}
+
+function mouseDragged()
+{
+    if(lockTrack)
+    {
+        var offsetX = mouseX - xLock;
+        console.log(`OffsetX: ${offsetX}, MouseX: ${mouseX}, xLock: ${xLock}`);
+        soundWaveX = oldX + offsetX;
+        startTime = map(soundWaveX, 0, width, 0, transportLoopLength);
+
+    }
+}
+
+function mouseReleased()
+{
+    if(lockTrack){
+        lockTrack = false;
+        toneTrack1.unsync();
+        toneTrack1.toMaster().sync().start(startTime);
+        //Tone.Transport.clear(toneTrackId1);
+        //toneTrackId1 = Tone.Transport.schedule((time) =>{
+        //    toneTrack1.start();
+        //}, startTime);
+        console.log(`New StartTime : ${startTime} `);
+    }
+
+
 }
 
 function drawSoundWave(track)
@@ -294,21 +402,21 @@ function drawSoundWave(track)
 
     let soundWaveWidth = map(track.duration(), 0, transportLoopLength, 0, width);
     let soundWaveHeight = 100;
-    let soundWaveX = 0;
-    let soundWaveY = 650;
-    stroke('#fae');
-    fill("black");
+    soundWaveY = 650;
+
+    overTrack = trackHover(soundWaveX, soundWaveY, soundWaveWidth, soundWaveHeight);
+
     rect(soundWaveX, soundWaveY, soundWaveWidth, soundWaveHeight);
-    
     var waveform = track.getPeaks(500);
     stroke("pink");
     for (var i = 0; i< waveform.length; i++){
-      var x = map(i, 0, waveform.length, 0, soundWaveWidth);
-      var w = 1;
-      var h = map(waveform[i], -1, 1, (soundWaveY + soundWaveHeight), soundWaveY);
-      var y = (soundWaveY + (soundWaveHeight+ soundWaveY)) / 2;
-      line(x , y, x + 0, h);
+        var x = map(i, 0, waveform.length, soundWaveX, (soundWaveX + soundWaveWidth));
+        var w = 1;
+        var h = map(waveform[i], -1, 1, (soundWaveY + soundWaveHeight), soundWaveY);
+        var y = (soundWaveY + (soundWaveHeight+ soundWaveY)) / 2;
+        line(x , y, x + 0, h);
     }
+
 
 }
 
