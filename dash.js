@@ -9,7 +9,7 @@ let stopTransportButton;
 let track1;
 let volumeSlider;
 let fft;
-let se_history = [] ;
+let se_history = [];
 let secondBeat = false;
 let bpms = [];
 let waveform;
@@ -22,6 +22,7 @@ let soundWaveY;
 
 let overTrack;
 let lockTrack;
+let canvasWidth;
 
 let transportLoopLength = 240;
 //Tone.context.resume();
@@ -63,7 +64,6 @@ let noteFreqMapping = {
     'F#': 369.99,
     'G#': 415.30,
     'A#': 466.16
-
 }
 
 
@@ -74,24 +74,246 @@ let wavesurfer = WaveSurfer.create({
 
 
 class Edit {
-    numTracks = 1;
+    numTracks = 0;
+    trackList = [];
+    transportLoopLength = 240;
 
     constructor()
     {
+        
+    }
+
+    createTrack(width, height)
+    {
+        var newTrack = new Track(0,width, height,transportLoopLength);
+        this.trackList.push(newTrack);
+        numTracks += 1;
 
     }
 
-    createTrack()
+    drawPlayHead()
     {
-
+        stroke("green");
+        transportLoopLength = 240;
+        rect(map(Tone.Transport.seconds, 0, transportLoopLength, 0, width), 600, 2, 200);
     }
 }
 
 
 class Track 
 {
-    overTrack = false;
+    overTrack = 0;
 
+    trackX = 0;
+    trackY = 0;
+
+
+    trackWidth = width;
+    trackHeight = 100;
+
+    trackNum = 1;
+    p5Clips = [];
+    toneClips = [];
+    
+    lockClip = false;
+    currLockedClip = null;
+
+    clips = [];
+    numClips = 0;
+    
+    constructor(trackNum, trackWidth, trackHeight, transportLoopLength)
+    {
+        this.trackNum = trackNum;
+        this.trackWidth = trackWidth;
+        this.trackHeight = trackHeight;
+        this.transportLoopLength = transportLoopLength;
+    }
+
+    loadClip(url)
+    {
+        var p5Clip = loadSound(url);
+        var toneClip = new Tone.Player({
+            'url': url,
+            'loop':true,
+        }).toMaster().sync().start(0);
+        //toneTrackId1 = Tone.Transport.schedule((time) =>{
+        //    toneTrack.start();
+        //}, 0);
+        //PLAYER DOES NOT LOAD URL AT ALL
+        var clipIndex = this.numClips;
+        //this.toneClips.push(toneClip);
+        var newClip = new Clip(clipIndex, p5Clip, toneClip);
+        newClip.clipX = 0;
+        newClip.clipY = 650;
+        this.clips.push(new Clip(clipIndex, p5Clip))
+        this.numClips += 1;
+        console.log(`Player: ${toneTrack}, Start`);
+        //console.log(`Player loaded: ${toneTrack.loaded}`);
+        //toneTrack.autostart = true;
+        
+        return [p5Track, toneTrack];
+    }
+    draw()
+    {
+        drawTrack();
+        drawSoundWave();
+
+        
+    }
+
+
+    drawTrack()
+    {
+        stroke("red");
+        fill("grey");
+        rect(trackX, trackY, trackWidth, trackHeight);
+        
+    }
+
+    clipHover(clipX, clipY, clipWidth, clipHeight)
+    {
+        var endX = clipX + clipWidth;
+        var endY = clipY + clipHeight;
+        if(mouseX > x &&
+           mouseX < endX &&
+           mouseY > y &&
+           mouseY < endY)
+        {
+            stroke("white");
+            fill("black");
+            console.log("Inside Track 1");
+            return true;
+        }
+        else
+        {   
+            stroke("#fae");
+            fill("black");
+            return false
+        }
+    }
+
+    drawSoundWave()
+    {
+        for(let i = 0; i < this.clips.length; i++)
+        {
+            //Check to see the Type of clip later
+            var overClip = clipHover(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+
+            clips[i].hover = overClip;
+
+
+            var currClip = clips[i];
+        
+            rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+            var waveform = currClip.p5Player.getPeaks(500);
+            stroke("pink");
+            for (var i = 0; i< waveform.length; i++)
+            {
+                var x = map(i, 0, waveform.length, currClip.clipX, (currClip.clipX + currClip.clipLength));
+                var w = 1;
+                var h = map(waveform[i], -1, 1, (currClip.clipY + currClip.clipHeight), currClip.clipY);
+                var y = (currClip.clipY + (currClip.clipY + currClip.clipHeigjt)) / 2;
+                line(x , y, x + 0, h);
+            }
+        }
+
+    }
+
+    mousePressed()
+    {
+        for(let i = 0; i < this.clips.length; i++)
+        {
+            if(clip[i].hover)
+            {
+                this.currLockedClip = clip[i];
+                this.currLockedClip.lockClip = true;
+                fill("pink");
+                console.log("Clicked Track");
+                this.currLockedClip.xLock = mouseX;
+                this.currLockedClip.oldX = this.currLockedClip.clipX
+            }
+        }
+
+    }
+
+    mouseDragged()
+    {
+        if(this.currLockedClip != null && this.currLockedClip.lockClip)
+        {
+            var offsetX = mouseX - this.currLockedClip.xLock;
+            console.log(`OffsetX: ${offsetX}, MouseX: ${mouseX}, xLock: ${xLock}`);
+            var newSoundWaveX = oldX + offsetX;
+            this.currLockedClip.clipX = newSoundWaveX
+            startTime = map(soundWaveX, 0, width, 0, this.transportLoopLength);
+            this.currLockedClip.clipStartTime = startTime;
+            this.clips[this.currLockedClip.index].clipX = this.currLockedClip.clipStartTime
+    
+        }
+        
+    }
+
+    mouseReleased()
+    {
+        if(this.currLockedClip != null && this.currLockedClip.lockClip){
+            this.currLockedClip.lockClip = false;
+            this.currLockedClip.tonePlayer.unsync();
+            this.currLockedClip.tonePlayer.toMaster().sync().startTime(this.currLockedClip.clipStartTime);
+            //Tone.Transport.clear(toneTrackId1);
+            //toneTrackId1 = Tone.Transport.schedule((time) =>{
+            //    toneTrack1.start();
+            //}, startTime);
+            console.log(`New StartTime : ${this.currLockedClip.clipStartTime} `);
+        }
+    
+    }
+
+
+
+
+
+
+}
+
+
+class Clip 
+{
+
+    clipStartTime = 0;
+
+    clipX = 0;
+    clipY = 650;
+
+    clipLength = 0;
+    clipHeight = 100;
+    p5Player = null;
+    tonePlayer
+    index = 0;
+    transportLoopLength = 240;
+
+    hover = false;
+    lockClip = false;
+
+    xLock = mouseX;
+    oldX = clipX;
+
+
+    constructor(index, p5Player, tonePlayer)
+    {
+        this.index = index;
+        this.p5Player = p5Player;
+        this.tonePlayer = tonePlayer;
+    }
+
+    set clipLength(transportLoopLength)
+    {
+        this.transportLoopLength = transportLoopLength;
+        this.clipLength = map(this.p5Player.duration(), 0, this.transportLoopLength, 0, width);
+    }
+    get clipLength()
+    {
+        //Implement Later
+        return this.clipLength;
+    }
 }
 //wavesurfer.load('assets/DrakeOverdrive.wav');
 
@@ -116,11 +338,13 @@ function preload(){
     p5Track1 = tracks[0],
     toneTrack1 = tracks[1];
 
+
 }
 
 
 function setup(){
     createCanvas(600, 800);
+    canvasWidth = width;
     whiteNoise.amp(0.1);
 
     fft = new p5.FFT();
@@ -138,7 +362,7 @@ function setup(){
 
    // const osc1 = new Tone.Oscillator().toDestination();
 
-    console.log("Calling p5-Setup")
+    console.log("Calling p5-Setup");
 
 
 
