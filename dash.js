@@ -20,6 +20,8 @@ let trackWidth;
 let soundWaveX = 0;
 let soundWaveY;
 
+let edit;
+
 let overTrack;
 let lockTrack;
 let canvasWidth;
@@ -74,21 +76,68 @@ let wavesurfer = WaveSurfer.create({
 
 
 class Edit {
+    
+
     numTracks = 0;
     trackList = [];
     transportLoopLength = 240;
 
-    constructor()
+    constructor(width, height)
     {
-        
+        //Seperate the edit width and height from the tracks width and height. 
+        this.createTrack(width, height);
+    }
+
+    playTransport()
+    {
+        Tone.Transport.start();
+        console.log("Starting transport...");
+    }
+
+    stopTransport()
+    {
+        Tone.Transport.stop();
+        console.log("Stopping transport...");
     }
 
     createTrack(width, height)
     {
         var newTrack = new Track(0,width, height,transportLoopLength);
         this.trackList.push(newTrack);
-        numTracks += 1;
+        this.numTracks += 1;
+    }
 
+    draw()
+    {
+        drawPlayHead();
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            this.trackList[i].draw();
+        }
+    }
+
+    mousePressed()
+    {
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            this.trackList[i].mousePressed();
+        }
+    }
+    mouseDragged()
+    {
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            this.trackList[i].mouseDragged();
+        }
+
+    }
+
+    mouseReleased()
+    {
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            this.trackList[i].mouseReleased();
+        }
     }
 
     drawPlayHead()
@@ -105,7 +154,7 @@ class Track
     overTrack = 0;
 
     trackX = 0;
-    trackY = 0;
+    trackY = 650;
 
 
     trackWidth = width;
@@ -131,32 +180,36 @@ class Track
 
     loadClip(url)
     {
-        var p5Clip = loadSound(url);
-        var toneClip = new Tone.Player({
-            'url': url,
-            'loop':true,
-        }).toMaster().sync().start(0);
-        //toneTrackId1 = Tone.Transport.schedule((time) =>{
-        //    toneTrack.start();
-        //}, 0);
-        //PLAYER DOES NOT LOAD URL AT ALL
-        var clipIndex = this.numClips;
-        //this.toneClips.push(toneClip);
-        var newClip = new Clip(clipIndex, p5Clip, toneClip);
-        newClip.clipX = 0;
-        newClip.clipY = 650;
-        this.clips.push(new Clip(clipIndex, p5Clip))
-        this.numClips += 1;
-        console.log(`Player: ${toneTrack}, Start`);
+        var p5Clip = loadSound(url, () => {
+            var toneClip = new Tone.Player({
+                'url': url,
+                'loop':true,
+            }).toMaster().sync().start(0);
+            //toneTrackId1 = Tone.Transport.schedule((time) =>{
+            //    toneTrack.start();
+            //}, 0);
+            //PLAYER DOES NOT LOAD URL AT ALL
+            var clipIndex = this.numClips;
+            //this.toneClips.push(toneClip);
+            var newClip = new Clip(clipIndex, p5Clip, toneClip, this.trackWidth);
+            newClip.clipX = 0;
+            newClip.clipY = 650;
+            newClip.calcClipLength(transportLoopLength);
+            console.log(newClip);
+            this.clips.push(newClip)
+            this.numClips += 1;
+        });
+
+        //console.log(`Player: ${toneTrack}, Start`);
         //console.log(`Player loaded: ${toneTrack.loaded}`);
         //toneTrack.autostart = true;
         
-        return [p5Track, toneTrack];
+        //return [p5Track, toneTrack];
     }
     draw()
     {
-        drawTrack();
-        drawSoundWave();
+        this.drawTrack();
+        this.drawSoundWave();
 
         
     }
@@ -166,7 +219,7 @@ class Track
     {
         stroke("red");
         fill("grey");
-        rect(trackX, trackY, trackWidth, trackHeight);
+        rect(this.trackX, this.trackY, this.trackWidth, this.trackHeight);
         
     }
 
@@ -174,9 +227,9 @@ class Track
     {
         var endX = clipX + clipWidth;
         var endY = clipY + clipHeight;
-        if(mouseX > x &&
+        if(mouseX > clipX &&
            mouseX < endX &&
-           mouseY > y &&
+           mouseY > clipY &&
            mouseY < endY)
         {
             stroke("white");
@@ -194,27 +247,35 @@ class Track
 
     drawSoundWave()
     {
-        for(let i = 0; i < this.clips.length; i++)
+        for(let k = 0; k < this.clips.length; k++)
         {
+            //console.log(`Drawing Sound Wave for clip ${k}`);
             //Check to see the Type of clip later
-            var overClip = clipHover(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
 
-            clips[i].hover = overClip;
+            var currClip = this.clips[k];
 
 
-            var currClip = clips[i];
-        
+            var overClip = this.clipHover(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+
+            this.clips[k].hover = overClip;
+
+
+            //console.log(currClip)
             rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
             var waveform = currClip.p5Player.getPeaks(500);
             stroke("pink");
+            //fill("black");
             for (var i = 0; i< waveform.length; i++)
             {
                 var x = map(i, 0, waveform.length, currClip.clipX, (currClip.clipX + currClip.clipLength));
                 var w = 1;
                 var h = map(waveform[i], -1, 1, (currClip.clipY + currClip.clipHeight), currClip.clipY);
-                var y = (currClip.clipY + (currClip.clipY + currClip.clipHeigjt)) / 2;
+                var y = (currClip.clipY + (currClip.clipY + currClip.clipHeight)) / 2;
                 line(x , y, x + 0, h);
             }
+            //console.log(`Peaks Length: ${waveform.length}`);
+            //console.log(`Drawing Sound Wave for clip ${k}`);
+
         }
 
     }
@@ -223,9 +284,9 @@ class Track
     {
         for(let i = 0; i < this.clips.length; i++)
         {
-            if(clip[i].hover)
+            if(this.clips[i].hover)
             {
-                this.currLockedClip = clip[i];
+                this.currLockedClip = this.clips[i];
                 this.currLockedClip.lockClip = true;
                 fill("pink");
                 console.log("Clicked Track");
@@ -241,12 +302,12 @@ class Track
         if(this.currLockedClip != null && this.currLockedClip.lockClip)
         {
             var offsetX = mouseX - this.currLockedClip.xLock;
-            console.log(`OffsetX: ${offsetX}, MouseX: ${mouseX}, xLock: ${xLock}`);
-            var newSoundWaveX = oldX + offsetX;
+            var newSoundWaveX = this.currLockedClip.oldX + offsetX;
             this.currLockedClip.clipX = newSoundWaveX
-            startTime = map(soundWaveX, 0, width, 0, this.transportLoopLength);
+            startTime = map(newSoundWaveX, 0, this.trackWidth, 0, this.transportLoopLength);
             this.currLockedClip.clipStartTime = startTime;
-            this.clips[this.currLockedClip.index].clipX = this.currLockedClip.clipStartTime
+            console.log(`OffsetX: ${offsetX}, MouseX: ${mouseX}, xLock: ${this.currLockedClip.xLock} startTime: ${startTime}`);
+            this.clips[this.currLockedClip.index] = this.currLockedClip;
     
         }
         
@@ -257,7 +318,7 @@ class Track
         if(this.currLockedClip != null && this.currLockedClip.lockClip){
             this.currLockedClip.lockClip = false;
             this.currLockedClip.tonePlayer.unsync();
-            this.currLockedClip.tonePlayer.toMaster().sync().startTime(this.currLockedClip.clipStartTime);
+            //this.currLockedClip.tonePlayer.toMaster().sync().startTime(this.currLockedClip.clipStartTime);
             //Tone.Transport.clear(toneTrackId1);
             //toneTrackId1 = Tone.Transport.schedule((time) =>{
             //    toneTrack1.start();
@@ -286,7 +347,7 @@ class Clip
     clipLength = 0;
     clipHeight = 100;
     p5Player = null;
-    tonePlayer
+    tonePlayer = null;
     index = 0;
     transportLoopLength = 240;
 
@@ -294,26 +355,24 @@ class Clip
     lockClip = false;
 
     xLock = mouseX;
-    oldX = clipX;
+    oldX = this.clipX;
 
 
-    constructor(index, p5Player, tonePlayer)
+    constructor(index, p5Player, tonePlayer, trackWidth)
     {
         this.index = index;
         this.p5Player = p5Player;
         this.tonePlayer = tonePlayer;
+        this.trackWidth = trackWidth;
     }
 
-    set clipLength(transportLoopLength)
+    calcClipLength(transportLoopLength)
     {
         this.transportLoopLength = transportLoopLength;
-        this.clipLength = map(this.p5Player.duration(), 0, this.transportLoopLength, 0, width);
+        console.log(map(this.p5Player.duration(), 0, this.transportLoopLength, 0, this.trackWidth));
+        this.clipLength = map(this.p5Player.duration(), 0, this.transportLoopLength, 0, this.trackWidth);
     }
-    get clipLength()
-    {
-        //Implement Later
-        return this.clipLength;
-    }
+    
 }
 //wavesurfer.load('assets/DrakeOverdrive.wav');
 
@@ -333,10 +392,14 @@ const blackNotes = document.querySelectorAll('.key.black')
 
 function preload(){
     track1 = loadSound('assets/hardBall.mp3');
-    var tracks = loadTrack('assets/DrakeOverdrive.wav');
+    //var tracks = loadTrack('assets/DrakeOverdrive.wav');
 
-    p5Track1 = tracks[0],
-    toneTrack1 = tracks[1];
+
+    edit = new Edit(600, 100);
+    edit.trackList[0].loadClip('assets/DrakeOverdrive.wav');
+
+    //p5Track1 = tracks[0],
+    //toneTrack1 = tracks[1];
 
 
 }
@@ -347,12 +410,14 @@ function setup(){
     canvasWidth = width;
     whiteNoise.amp(0.1);
 
+
     fft = new p5.FFT();
 
     osc = new p5.TriOsc(); // set frequency and type
     
     osc.amp(0.5);
     envelope = new p5.Env();
+
 
     // set attackTime, decayTime, sustainRatio, releaseTime
     envelope.setADSR(0.001, 0.5, 0.1, 0.5);
@@ -489,13 +554,15 @@ function onStopClicked(){
 }
 
 function onStartTransportClicked(){
-    Tone.Transport.start();
+    //Tone.Transport.start();
+    edit.playTransport();
     console.log("Starting transport...");
 
 }
 
 function onStopTransportClicked(){
-    Tone.Transport.stop();
+    //Tone.Transport.stop();
+    edit.stopTransport();
     console.log("Stopping transport...");
 }
 
@@ -534,12 +601,14 @@ function draw(){
     vertex(width, 400)
     endShape();
 
+    //console.log(`Edit: ${edit} `);
+    edit.draw();
     drawPlayHead();
-    drawTrack();
+    //drawTrack();
     //point(10,spectrum[0]);
 
-    drawSoundWave(p5Track1);
-    drawTransportPlayHead();
+    //drawSoundWave(p5Track1);
+    //drawTransportPlayHead();
 
 }
 
@@ -580,6 +649,8 @@ let oldX;
 let startTime;
 function mousePressed()
 {
+    edit.mousePressed();
+    /*
     if(overTrack){
         lockTrack = true;
         fill("pink");
@@ -590,11 +661,13 @@ function mousePressed()
     else{
         lockTrack = false;
     }
-
+    */
 }
 
 function mouseDragged()
 {
+    edit.mouseDragged();
+    /*
     if(lockTrack)
     {
         var offsetX = mouseX - xLock;
@@ -603,10 +676,13 @@ function mouseDragged()
         startTime = map(soundWaveX, 0, width, 0, transportLoopLength);
 
     }
+    */
 }
 
 function mouseReleased()
 {
+    edit.mouseReleased();
+    /*
     if(lockTrack){
         lockTrack = false;
         toneTrack1.unsync();
@@ -617,13 +693,14 @@ function mouseReleased()
         //}, startTime);
         console.log(`New StartTime : ${startTime} `);
     }
+    */
 
 
 }
 
 function drawSoundWave(track)
 {
-
+    
     let soundWaveWidth = map(track.duration(), 0, transportLoopLength, 0, width);
     let soundWaveHeight = 100;
     soundWaveY = 650;
@@ -641,22 +718,24 @@ function drawSoundWave(track)
         line(x , y, x + 0, h);
     }
 
-
+    
 }
 
 function drawTransportPlayHead()
-{  
+{  /*
     stroke("green");
     transportLoopLength = 240;
     rect(map(Tone.Transport.seconds, 0, transportLoopLength, 0, width), 600, 2, 200);
-
+    */
 }
 
 
 
 function drawPlayHead(){
+    
     stroke("black")
     rect(map(track1.currentTime(), 0, track1.duration(), 0, width), 0, 2, 300);
+    
 }
 
 
