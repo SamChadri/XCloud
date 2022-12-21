@@ -1,3 +1,10 @@
+//import {React} from 'react';
+//import {ReactDOM} from 'react-dom'
+import Vue from 'vue'
+//import Vue from 'https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.esm.browser.js'
+
+import { getCurrentInstance } from 'vue';
+
 
 let whiteNoise = new p5.Noise();
 let playButton;
@@ -87,6 +94,7 @@ class Edit {
     {
         this.width = width;
         this.height = height;
+        this.createTrack();
         //Seperate the edit width and height from the tracks width and height. 
         //this.createTrack(width, height);
         //Might create default track here
@@ -117,11 +125,18 @@ class Edit {
     createTrack(width, height)
     {
         var newTrack = new Track(this.numTracks,600, 100,transportLoopLength);
-        newTrack.trackY = this.height - 100;
+
         newTrack.setP5(this.p5);
+
+        if(this.numTracks != 0 ){
+            this.height += 100;
+            newTrack.trackY = this.height - 100;
+            this.p5.resizeCanvas(edit.width, edit.height);
+        }
         this.trackList.push(newTrack);
         this.numTracks += 1;
-        this.width += 100;
+
+        
     }
 
     draw()
@@ -188,14 +203,19 @@ class Track
     clips = [];
     numClips = 0;
 
+    name = ``;
+    volume = 50;
+
     p5 = null
     
-    constructor(trackNum, trackWidth, trackHeight, transportLoopLength)
+    constructor(trackNumber, trackWidth, trackHeight, transportLoopLength)
     {
-        this.trackNum = trackNum;
+        this.trackNum = trackNumber;
+        console.log(`Track Num: ${trackNumber}`);
         this.trackWidth = trackWidth;
         this.trackHeight = trackHeight;
         this.transportLoopLength = transportLoopLength;
+        this.name = `Track ${this.trackNum + 1}`
     }
 
     setP5(p5Object){
@@ -426,6 +446,22 @@ const blackNotes = document.querySelectorAll('.key.black');
 
 let edit  = new Edit(600, 100);
 
+const app = new Vue({
+    el: '#tracks',
+    data(){
+        return {
+            count: "Hello World",
+            items: edit.trackList
+        }
+
+    },
+    methods: {
+        setItems: function (items) {
+            this.items = items;
+        }
+    }
+});
+
 var trackP5 = function(track) {
 
     let playButton = document.getElementById("playButton");
@@ -434,12 +470,11 @@ var trackP5 = function(track) {
     newButton.onclick = addTrackClicked;
     track.preload = function(){
         edit.setP5(track);
-        edit.createTrack(600, 100);
         edit.trackList[0].loadClip('assets/DrakeOverdrive.wav');
     }
 
     track.setup = function(){
-        track.createCanvas(600,100);   
+        track.createCanvas(edit.width,edit.height);   
     };
 
     track.draw = function(){
@@ -447,7 +482,11 @@ var trackP5 = function(track) {
     };
 
     function addTrackClicked(){
-        edit.createTrack(600,100)
+        console.log("Adding new Track..")
+        edit.createTrack(600,100);
+        //window.app.setItems(edit.trackList);
+        console.log(app.$items);
+        //app.forceUpdate();
     }
 
     function playButtonClicked()
@@ -469,6 +508,12 @@ var trackP5 = function(track) {
 };
 
 var editP = new p5(trackP5, 'track1');
+var tempTracks = edit.trackList;
+
+
+
+//app.mount('#tracks');
+
 
 /*
 function preload(){
