@@ -87,8 +87,9 @@ class Edit {
     numTracks = 0;
     trackList = [];
     transportLoopLength = 240;
-    p5 = null
+    p5 = null;
     init_track = false;
+    recording_track = null;
 
     constructor(width, height)
     {
@@ -116,10 +117,38 @@ class Edit {
         console.log("Starting transport...");
     }
 
+
+
     stopTransport()
     {
         Tone.Transport.stop();
         console.log("Stopping transport...");
+    }
+
+    enableRecording(trackNum)
+    {
+        console.log(`TrackNum: ${trackNum}`)
+        this.recording_track = this.trackList[trackNum].enableRecording();
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            this.trackList[i].disableRecording(); 
+        }
+        console.log("Recording Enabled...");
+        
+    }
+
+    record()
+    {
+        if(this.recording_track.state == Track.recordingState.READY)
+        {
+            this.recording_track.startRecording();
+
+        }
+        else if(this.recording_track.state == Track.recordingState.RECORDING)
+        {
+            this.recording_track.stopRecording();
+        }
+        console.log("Recording....");
     }
 
     createTrack(width, height)
@@ -184,6 +213,12 @@ class Edit {
 
 class Track 
 {
+    static recordingState = {
+        DISABLED: 0,
+        READY: 1,
+        RECORDING: 2,
+        STOPPED: 3,
+    };
     overTrack = 0;
 
     trackX = 0;
@@ -194,6 +229,7 @@ class Track
     trackHeight = 100;
 
     trackNum = 1;
+    enId = ""
     p5Clips = [];
     toneClips = [];
     
@@ -206,7 +242,16 @@ class Track
     name = ``;
     volume = 50;
 
-    p5 = null
+    p5 = null;
+
+    recordings = [];
+    recorder = null;
+    mic = null;
+
+    currSoundFile = null;
+
+    state = 0;
+    
     
     constructor(trackNumber, trackWidth, trackHeight, transportLoopLength)
     {
@@ -215,8 +260,49 @@ class Track
         this.trackWidth = trackWidth;
         this.trackHeight = trackHeight;
         this.transportLoopLength = transportLoopLength;
+        this.enId = `rec-enable-${this.trackNum}`; 
         this.name = `Track ${this.trackNum + 1}`
     }
+
+    enableRecording()
+    {
+        this.mic = new p5.AudioIn();
+        this.mic.start();
+
+        this.recorder = new p5.SoundRecorder();
+        this.recorder.setInput(mic);
+        this.currSoundFile = new p5.SoundFile();
+    }
+
+    startRecording()
+    {
+        if(this.state == Track.recordingState.READY && this.mic.enabled)
+        {
+            this.recorder.record(this.currSoundFile);
+            this.state = Track.recordingState.RECORDING;
+        }
+
+    }
+
+
+    stopRecording()
+    {
+        if(this.state == Track.recordingState.RECORDING)
+        {
+            this.recorder.stop();
+            this.state = Track.recordingState.STOPPED;
+            this.p5.saveSound(soundFile, `./assets/testRecording.wav`); //Add Timestamp
+            this.recordings.push(this.currSoundFile);
+            this.currSoundFile = new p5.SoundFile();
+        }
+    }
+
+    disableRecording()
+    {
+        this.state = Track.recordingState.DISABLED
+    }
+
+
 
     setP5(p5Object){
         this.p5 = p5Object;
@@ -234,7 +320,14 @@ class Track
                 var clipIndex = this.numClips;
                 //this.toneClips.push(toneClip);
                 var newClip = new Clip(clipIndex, p5Clip, toneClip, this.trackWidth);
-                newClip.clipX = 0;
+                if(this.clips.length != 0)
+                {
+                    newClip.clipX = this.clips[this.clips.length - 1] ;
+
+                }else{
+                    newClip.clipX = 0;
+
+                }
                 newClip.clipY = 0;
                 newClip.p5 = this.p5;
                 newClip.calcClipLength(transportLoopLength);
@@ -251,10 +344,10 @@ class Track
 
         //console.log(`Player: ${toneTrack}, Start`);
         //console.log(`Player loaded: ${toneTrack.loaded}`);
-        //toneTrack.autostart = true;
-        
+        //toneTrack.autostart = true;   
         //return [p5Track, toneTrack];
     }
+
     draw()
     {
         this.drawTrack();
@@ -451,7 +544,40 @@ const app = new Vue({
     data(){
         return {
             count: "Hello World",
-            items: edit.trackList
+            items: edit.trackList,
+            items_update: false,
+        }
+
+    },
+    watch:{
+        items: function()
+        {
+            
+            /*
+            enRecButtons[this.items.length - 1].addEventListener('click', (e)=>{
+                var id = e.target.id;
+                var idNum = parseInt(id.charArt(id.length - 1));
+                edit.enableRecording(idNum);
+            });*/
+            this.items_update = true;
+            console.log(`Item count changed to ${this.items.length}`);
+        }
+    },
+    updated:function(){
+
+        if(this.items_update == true)
+        {
+            var enRecButtons = document.getElementById(`rec-enable {}`);
+            console.log(enRecButtons[this.items.length - 1]);
+    
+            enRecButtons[this.items.length - 1].addEventListener('click', (e)=>{
+                var id = e.target.id;
+                console.log(e);
+                var idNum = parseInt(String.prototype.charAt(id.length - 1));
+                edit.enableRecording(idNum);
+            });
+            console.log("Vue Updated...");
+            this.items_update = false;
         }
 
     },
@@ -466,8 +592,17 @@ var trackP5 = function(track) {
 
     let playButton = document.getElementById("playButton");
     let newButton = document.getElementById("newTrackButton");
+    let recordButton = document.getElementById("recordButton");
+    let enRecButtons = document.getElementsByClassName("en-rec");
+    console.log(enRecButtons);
+    for(let i = 0; i < enRecButtons.length; i++)
+    {
+        //enRecButtons[i].onclick = enRecClicked;
+        enRecButtons[i].addEventListener('click', (e)=>{ enRecClicked(e)});
+    }
     playButton.onclick = playButtonClicked;
     newButton.onclick = addTrackClicked;
+    recordButton.onclick = recordButtonClicked;
     track.preload = function(){
         edit.setP5(track);
         edit.trackList[0].loadClip('assets/DrakeOverdrive.wav');
@@ -481,13 +616,31 @@ var trackP5 = function(track) {
         edit.draw();
     };
 
+    function enRecClicked(e){
+       var id = e.target.id;
+       var idNum = parseInt(id.charArt(id.length - 1));
+       edit.enableRecording(idNum)
+    }
+
+    function recordButtonClicked(){
+        edit.record();
+    }
+
     function addTrackClicked(){
-        console.log("Adding new Track..")
+        console.log("Adding new Track..");
         edit.createTrack(600,100);
+        //app.$forceUpdate();
+        //enRecButtons = document.getElementsByClassName("en-rec");
+        //console.log(enRecButtons);
+        //console.log(edit.numTracks);
+        //console.log(enRecButtons.length);
+        //enRecButtons[edit.numTracks - 1].addEventListener('click', (e)=>{ enRecClicked(e)});
+
         //window.app.setItems(edit.trackList);
         console.log(app.$items);
         //app.forceUpdate();
     }
+
 
     function playButtonClicked()
     {
