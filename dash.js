@@ -128,10 +128,13 @@ class Edit {
     enableRecording(trackNum)
     {
         console.log(`TrackNum: ${trackNum}`)
-        this.recording_track = this.trackList[trackNum].enableRecording();
+        this.recording_track = this.trackList[trackNum];
+        this.recording_track.enableRecording();
         for(let i = 0; i < this.trackList.length; i++)
         {
-            this.trackList[i].disableRecording(); 
+            if(i != trackNum){
+                this.trackList[i].disableRecording(); 
+            }
         }
         console.log("Recording Enabled...");
         
@@ -142,13 +145,17 @@ class Edit {
         if(this.recording_track.state == Track.recordingState.READY)
         {
             this.recording_track.startRecording();
+            this.playTransport();
+            console.log("Transport Started Recording....");
 
         }
         else if(this.recording_track.state == Track.recordingState.RECORDING)
         {
             this.recording_track.stopRecording();
+            this.stopTransport();
+            console.log("Transport Stopped Recording....");
         }
-        console.log("Recording....");
+        
     }
 
     createTrack(width, height)
@@ -248,6 +255,11 @@ class Track
     recorder = null;
     mic = null;
 
+    fft = null;
+
+    init_rec_time = 0;
+    init_recording = false;
+
     currSoundFile = null;
 
     state = 0;
@@ -269,17 +281,35 @@ class Track
         this.mic = new p5.AudioIn();
         this.mic.start();
 
+        this.fft = new p5.FFT(); // Might change the default later.
+        this.fft.setInput(this.mic);
+
+
         this.recorder = new p5.SoundRecorder();
-        this.recorder.setInput(mic);
+        this.recorder.setInput(this.mic);
         this.currSoundFile = new p5.SoundFile();
+        this.state = Track.recordingState.READY;
     }
 
     startRecording()
     {
         if(this.state == Track.recordingState.READY && this.mic.enabled)
         {
-            this.recorder.record(this.currSoundFile);
+            this.p5.getAudioContext().resume();
+            this.recorder.record(this.currSoundFile, null ,() =>{
+                console.log(this.currSoundFile);
+                console.log("Timed Recording Finished");
+                console.log(this.currSoundFile.isLoaded());
+                this.p5.saveSound(this.currSoundFile, `testRecording.wav`); //Add Timestamp
+                this.recordings.push(this.currSoundFile);
+                this.currSoundFile = new p5.SoundFile();
+                console.log(`Stopped Recording Track ${this.trackNum}`);
+
+            });
             this.state = Track.recordingState.RECORDING;
+            this.createRecordingClip();
+            console.log(`Started Recording Track ${this.trackNum}`);
+            
         }
 
     }
@@ -291,15 +321,58 @@ class Track
         {
             this.recorder.stop();
             this.state = Track.recordingState.STOPPED;
-            this.p5.saveSound(soundFile, `./assets/testRecording.wav`); //Add Timestamp
+            /*
+            console.log(this.recorder);
+            this.currSoundFile.play();
+            console.log(this.currSoundFile);
+            //this.currSoundFile.save();
+            this.p5.saveSound(this.currSoundFile, `testRecording.wav`); //Add Timestamp
             this.recordings.push(this.currSoundFile);
             this.currSoundFile = new p5.SoundFile();
+            */
+        }
+    }
+
+    createRecordingClip()
+    {  
+        if(this.init_recording == false)
+        {
+            this.init_rec_time = this.p5.map(Tone.Transport.seconds, 0, transportLoopLength, 0, this.p5.width);
+            this.init_recording = true;
+            console.log("Started Creating Recording Clip");
+            console.log(`Start Position: ${this.init_rec_time}`);
+        }
+        console.log("Creatting recording clip");
+        var rec_dif = Tone.Transport.seconds - this.init_rec_time;
+        console.log(`Rec Diff: ${rec_dif}`);
+        this.p5.stroke("red");
+        this.p5.fill("red");
+        var rec_dif_pos = this.p5.map(rec_dif, 0, transportLoopLength, 0, this.p5.width);
+        this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
+        this.analyzeRecording(this.init_rec_time, 100, rec_dif_pos, 100);
+
+        
+    }
+
+
+    analyzeRecording(clipX, clipY, clipWidth, clipHeight)
+    {
+        this.p5.stroke("black");
+        let waveform = this.fft.waveform();
+        for(let i = 0; i < waveform.length; i++)
+        {
+            var x = this.p5.map(i, 0, waveform.length, clipX, (clipX + clipWidth));
+            var w = 1;
+            var h = this.p5.map(waveform[i], -1, 1, (clipY + clipHeight), clipY);
+            var y = (clipY + (clipY + clipHeight)) / 2;
+            this.p5.line(x , y, x + 0, h);
+               
         }
     }
 
     disableRecording()
     {
-        this.state = Track.recordingState.DISABLED
+        this.state = Track.recordingState.DISABLED;
     }
 
 
@@ -352,6 +425,10 @@ class Track
     {
         this.drawTrack();
         this.drawSoundWave();
+        if(this.init_recording == true)
+        {
+            this.createRecordingClip();
+        }
 
         
     }
@@ -558,7 +635,8 @@ const app = new Vue({
                 var id = e.target.id;
                 var idNum = parseInt(id.charArt(id.length - 1));
                 edit.enableRecording(idNum);
-            });*/
+            });
+            */
             this.items_update = true;
             console.log(`Item count changed to ${this.items.length}`);
         }
@@ -567,13 +645,15 @@ const app = new Vue({
 
         if(this.items_update == true)
         {
-            var enRecButtons = document.getElementById(`rec-enable {}`);
-            console.log(enRecButtons[this.items.length - 1]);
+            var enRecButton = document.getElementById(`rec-enable-${this.items.length-1}`);
+            console.log(enRecButton);
     
-            enRecButtons[this.items.length - 1].addEventListener('click', (e)=>{
-                var id = e.target.id;
-                console.log(e);
-                var idNum = parseInt(String.prototype.charAt(id.length - 1));
+            enRecButton.addEventListener('click', (e)=>{
+                var id = e.currentTarget.id;
+                e.stopPropagation();
+                console.log(e.target);
+                console.log(e.currentTarget.id.charAt(id.length-1));
+                var idNum = parseInt(id.charAt(id.length - 1));
                 edit.enableRecording(idNum);
             });
             console.log("Vue Updated...");
