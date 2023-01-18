@@ -80,6 +80,97 @@ let wavesurfer = WaveSurfer.create({
     container: '#waveform'
 });
 
+class OnScreenKeyboard 
+{
+
+    keyboardMapping = {
+        65: 'C',
+        83: 'D',
+        68: 'E',
+        70: 'F',
+        71: 'G',
+        72: 'A',
+        74: 'B',
+        87: 'C#',
+        69: 'D#',
+        84: 'F#',
+        89: 'G#',
+        85: 'A#'
+    };
+
+    noteFreqMapping = {
+        'C': 261.63,
+        'D': 293.66,
+        'E': 329.63,
+        'F': 349.23,
+        'G': 392.00,
+        'A': 440.00,
+        'B': 493.88,
+        'C#': 277.18,
+        'D#': 311.13,
+        'F#': 369.99,
+        'G#': 415.30,
+        'A#': 466.16
+    };
+
+    clickNoteCallback = () => {};
+    keyNoteCallback = () => {};
+
+    osc = null;
+    envelope = null;
+
+
+
+
+    keys = document.querySelectorAll('.key');
+
+    whiteNotes = document.querySelectorAll('.key.white');
+    blackNotes = document.querySelectorAll('.key.black');
+
+
+    constructor()
+    {
+        keys.forEach((key) => {
+            key.addEventListener("transitionend", (e)=>{
+                if(e.propertyName !== "transform") return;
+                console.log(e);
+                e.target.classList.remove("playing");
+            });
+        });
+    }
+
+
+    setKeyNoteCallback(callback)
+    {
+        this.keyNoteCallback = callback;
+    }
+
+    setClickNoteCallback(callback)
+    {
+        this.clickNoteCallback = callback;
+    }
+
+    clickNote(key)
+    {
+        this.clickNoteCallback();
+        key.classList.add('playing');
+    }
+
+    keyNote(event)
+    {
+        const note = keyboardMapping[e.keyCode];
+        let freq = noteFreqMapping[note];
+
+        this.keyNoteCallback(freq);
+        
+        let key = document.querySelector(`.key[data-note="${note}"]`);
+        key.classList.add('playing');
+    }
+
+
+    
+}
+
 
 class Edit {
     
@@ -156,6 +247,11 @@ class Edit {
             console.log("Transport Stopped Recording....");
         }
         
+    }
+
+    recordMidi()
+    {
+        //Create the rect and add notes that correspond using the map function.
     }
 
     createTrack(width, height)
@@ -259,6 +355,7 @@ class Track
 
     init_rec_time = 0;
     init_recording = false;
+    init_midi_recording = false;
 
     currSoundFile = null;
 
@@ -273,7 +370,7 @@ class Track
         this.trackHeight = trackHeight;
         this.transportLoopLength = transportLoopLength;
         this.enId = `rec-enable-${this.trackNum}`; 
-        this.name = `Track ${this.trackNum + 1}`
+        this.name = `Track ${this.trackNum + 1}`;
     }
 
     enableRecording()
@@ -297,11 +394,14 @@ class Track
         {
             this.p5.getAudioContext().resume();
             this.recorder.record(this.currSoundFile, null ,() =>{
+                this.init_recording = false;
                 console.log(this.currSoundFile);
                 console.log("Timed Recording Finished");
                 console.log(this.currSoundFile.isLoaded());
                 this.p5.saveSound(this.currSoundFile, `testRecording.wav`); //Add Timestamp
                 this.recordings.push(this.currSoundFile);
+                console.log(`Loading file from path: ${this.currSoundFile.url}`);
+                this.loadRecordingClip(this.currSoundFile);
                 this.currSoundFile = new p5.SoundFile();
                 console.log(`Stopped Recording Track ${this.trackNum}`);
 
@@ -331,6 +431,34 @@ class Track
             this.currSoundFile = new p5.SoundFile();
             */
         }
+    }
+
+    startRecordingMidi()
+    {
+        if(this.state == Track.recordingState.READY)
+        {
+
+        }
+    }
+
+
+    stopRecordingMidi()
+    {
+        if(this.state == Track.recordingState.STOPPED)
+        {
+
+        }
+
+    }
+
+    createMidiRecordingClip()
+    {
+        if(this.init_midi_recording == false)
+        {
+            this._init_rec_time = this.p5.map(Tone.Transport.seconds, 0, transportLoopLength, 0, this.p5.width);
+            this.init_midi_recording = true;
+        }
+
     }
 
     createRecordingClip()
@@ -377,8 +505,33 @@ class Track
 
 
 
-    setP5(p5Object){
+    setP5(p5Object)
+    {
         this.p5 = p5Object;
+    }
+
+    loadRecordingClip(soundFile)
+    {
+        var toneClip = new Tone.Player(soundFile.buffer, () => {
+            console.log(toneClip);
+
+            var clipIndex = this.numClips;
+            var newClip = new Clip(this.numClips, soundFile, toneClip, this.trackWidth);
+            if(this.clips.length != 0)
+            {
+                newClip.clipX = this.clips[clipIndex].clipLength;
+            }else{
+                newClip.clipX = 0;
+            }
+            newClip.clipY = this.trackNum * 100;
+            newClip.p5 = this.p5;
+            newClip.calcClipLength(transportLoopLength);
+            console.log(newClip);
+            this.clips.push(newClip);
+            this.numClips += 1;
+
+
+        }).toMaster().sync().start(0);
     }
 
     loadClip(url)
@@ -395,13 +548,13 @@ class Track
                 var newClip = new Clip(clipIndex, p5Clip, toneClip, this.trackWidth);
                 if(this.clips.length != 0)
                 {
-                    newClip.clipX = this.clips[this.clips.length - 1] ;
+                    newClip.clipX = this.clips[this.clips.length - 1].clipLength;
 
                 }else{
                     newClip.clipX = 0;
 
                 }
-                newClip.clipY = 0;
+                newClip.clipY = this.trackNum * 100;
                 newClip.p5 = this.p5;
                 newClip.calcClipLength(transportLoopLength);
                 console.log(newClip);
@@ -615,6 +768,7 @@ const blackNotes = document.querySelectorAll('.key.black');
 
 
 let edit  = new Edit(600, 100);
+let keyboard = new OnScreenKeyboard();
 
 const app = new Vue({
     el: '#tracks',
@@ -686,9 +840,11 @@ var trackP5 = function(track) {
     track.preload = function(){
         edit.setP5(track);
         edit.trackList[0].loadClip('assets/DrakeOverdrive.wav');
+        
     }
 
     track.setup = function(){
+
         track.createCanvas(edit.width,edit.height);   
     };
 
