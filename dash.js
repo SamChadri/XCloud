@@ -113,8 +113,29 @@ class OnScreenKeyboard
         'A#': 466.16
     };
 
+    static midiMapping = {
+        'C': 72,
+        'C#': 73,
+        'D': 74,
+        'D#': 75,
+        'E': 76,
+        'F': 77,
+        'F#': 78,
+        'G': 79,
+        'G#': 80,
+        'A': 81,
+        'A#': 82,
+        'B': 83,
+    }
+
+    static midiNote
+
+    static noteCount = 12;
+
     clickNoteCallback = () => {};
     keyNoteCallback = () => {};
+
+    midiNoteCallback = () => {};
 
     osc = null;
     envelope = null;
@@ -137,6 +158,12 @@ class OnScreenKeyboard
                 e.target.classList.remove("playing");
             });
         });
+
+        keys.forEach((key) =>{
+            key.addEventListener('click', () => this.clickNote(key));
+        });
+    
+        document.addEventListener('keydown', (e) => this.keyNote(e));
     }
 
 
@@ -150,15 +177,23 @@ class OnScreenKeyboard
         this.clickNoteCallback = callback;
     }
 
+    setMidiNoteCallback(callback)
+    {
+        this.midiNoteCallback = callback;
+    }
+
     clickNote(key)
     {
-        this.clickNoteCallback();
+        const note = key.dataset.note;
+        let freq = noteFreqMapping[note];
+        this.clickNoteCallback(freq);
+        this.midiNoteCallback(note);
         key.classList.add('playing');
     }
 
     keyNote(event)
     {
-        const note = keyboardMapping[e.keyCode];
+        const note = keyboardMapping[event.keyCode];
         let freq = noteFreqMapping[note];
 
         this.keyNoteCallback(freq);
@@ -171,6 +206,24 @@ class OnScreenKeyboard
     
 }
 
+class MidiMessage{
+    note = '';
+
+    midiNum = 0;
+
+    duration = 0;
+
+    message= '';
+
+    startTime = 0;
+
+    constructor(note, midiNum)
+    {
+        this.note = note;
+        this.midiNum = midiNum;
+    }
+}
+
 
 class Edit {
     
@@ -181,6 +234,9 @@ class Edit {
     p5 = null;
     init_track = false;
     recording_track = null;
+    midi_recording_track = null;
+
+    static midiMessageCallback = () => {};
 
     constructor(width, height)
     {
@@ -190,7 +246,6 @@ class Edit {
         //Seperate the edit width and height from the tracks width and height. 
         //this.createTrack(width, height);
         //Might create default track here
-
     }
 
     setP5(p5Object)
@@ -207,8 +262,6 @@ class Edit {
         Tone.Transport.start();
         console.log("Starting transport...");
     }
-
-
 
     stopTransport()
     {
@@ -229,6 +282,20 @@ class Edit {
         }
         console.log("Recording Enabled...");
         
+    }
+
+    enableMidiRecording(trackNum)
+    {
+
+        this.midi_recording_track = this.trackList[trackNum];
+        this.midi_recording_track.enableMidiRecording();
+        for(let i = 0; i < this.trackList.length; i++)
+        {
+            if(i != trackNum)
+            {
+                this.trackList[i].disableMidiRecording();
+            }
+        }
     }
 
     record()
@@ -322,6 +389,15 @@ class Track
         RECORDING: 2,
         STOPPED: 3,
     };
+    //Play around with these numbers.
+    static midiRecordingState = {
+        DISABLED: 4,
+        READY: 5,
+        RECORDING: 6,
+        STOPPED: 7,
+    };
+
+
     overTrack = 0;
 
     trackX = 0;
@@ -332,7 +408,8 @@ class Track
     trackHeight = 100;
 
     trackNum = 1;
-    enId = ""
+    enId = "";
+    menId = "";
     p5Clips = [];
     toneClips = [];
     
@@ -357,6 +434,9 @@ class Track
     init_recording = false;
     init_midi_recording = false;
 
+
+    curr_midi_notes = [];
+
     currSoundFile = null;
 
     state = 0;
@@ -369,7 +449,8 @@ class Track
         this.trackWidth = trackWidth;
         this.trackHeight = trackHeight;
         this.transportLoopLength = transportLoopLength;
-        this.enId = `rec-enable-${this.trackNum}`; 
+        this.enId = `rec-enable-${this.trackNum}`;
+        this.menId = `midi-enable-${this.trackNum}`;
         this.name = `Track ${this.trackNum + 1}`;
     }
 
@@ -386,6 +467,21 @@ class Track
         this.recorder.setInput(this.mic);
         this.currSoundFile = new p5.SoundFile();
         this.state = Track.recordingState.READY;
+    }
+
+    enableMidiRecording()
+    {
+        Edit.midiMessageCallback = (note) => {
+            
+            var message = new MidiMessage(note, OnScreenKeyboard.midiMapping[note]);
+            console.log(message);
+            this.curr_midi_notes.push(message);
+            console.log(this.curr_midi_notes);
+            
+        }
+        this.state = Track.midiRecordingState.READY;
+        console.log(`Enable Midi Recording for track: ${this.trackNum}`);
+
     }
 
     startRecording()
@@ -435,7 +531,7 @@ class Track
 
     startRecordingMidi()
     {
-        if(this.state == Track.recordingState.READY)
+        if(this.state == Track.midiRecordingState.READY)
         {
 
         }
@@ -444,7 +540,7 @@ class Track
 
     stopRecordingMidi()
     {
-        if(this.state == Track.recordingState.STOPPED)
+        if(this.state == Track.midiRecordingState.RECORDING)
         {
 
         }
@@ -457,8 +553,15 @@ class Track
         {
             this._init_rec_time = this.p5.map(Tone.Transport.seconds, 0, transportLoopLength, 0, this.p5.width);
             this.init_midi_recording = true;
-        }
+            console.log("Started Creating Midi Recording Clip");
 
+        }
+        var rec_dif = Tone.Transport.seconds - this.init_rec_time;
+        this.p5.stroke("pink");
+        this.p5.fill("pink");
+        var rec_dif_pos = this.p5.map(rec_dif, 0, transportLoopLength, 0, this.p5.width);
+        this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
+        this.analyzeMidiRecording(this.init_rec_time, 100, rec_dif_pos, 100);
     }
 
     createRecordingClip()
@@ -498,9 +601,30 @@ class Track
         }
     }
 
+    analyzeMidiRecording(clipX, clipY, clipWidth, clipHeight)
+    {
+        this.p5.stroke("black");
+        rect_height = this.p5.map(i, 21, 100, 0, clipY);
+        for(let i = 0; i < this.curr_midi_notes.length; i++)
+        {
+            var midiNote = this.curr_midi_notes[i];
+            var rect_height = clipHeight/rect_height;
+            var rect_y = this.p5.map(midiNote.midiNum, 21, 100, clipY, (clipY+clipHeight));
+            var rect_width = this.p5.map(1,0, Tone.Transport.seconds,0, clipX, (clipX + clipWidth));
+            this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
+
+        }
+        
+    }
+
     disableRecording()
     {
         this.state = Track.recordingState.DISABLED;
+    }
+
+    disableMidiRecording()
+    {
+        this.state = Track.midiRecordingState.DISABLED;
     }
 
 
@@ -681,7 +805,6 @@ class Track
             this.currLockedClip.clipStartTime = startTime;
             console.log(`OffsetX: ${offsetX}, MouseX: ${this.p5.mouseX}, xLock: ${this.currLockedClip.xLock} startTime: ${startTime}`);
             this.clips[this.currLockedClip.index] = this.currLockedClip;
-    
         }
         
     }
@@ -750,6 +873,7 @@ class Clip
     }
     
 }
+
 //wavesurfer.load('assets/DrakeOverdrive.wav');
 
 //Do Something with the bpm later when I really start working with transport.
@@ -775,6 +899,7 @@ const app = new Vue({
     data(){
         return {
             count: "Hello World",
+            length: 1,
             items: edit.trackList,
             items_update: false,
         }
@@ -791,6 +916,16 @@ const app = new Vue({
                 edit.enableRecording(idNum);
             });
             */
+            if(this.items.length > this.length)
+            {
+                this.items_update = true;
+                this.length += 1;
+                console.log(`Item count changed to`)
+
+            }else{
+                this.length -= 1;
+                console.log(`Delete occured. Item count: `)
+            }
             this.items_update = true;
             console.log(`Item count changed to ${this.items.length}`);
         }
@@ -800,8 +935,19 @@ const app = new Vue({
         if(this.items_update == true)
         {
             var enRecButton = document.getElementById(`rec-enable-${this.items.length-1}`);
+            var enMidiButton = document.getElementById(`midi-enable-${this.items.length-1}`);
+            //EDGE CASE MAYBE ADD MORE THAN ONE ELEMENT AT A TIME....
             console.log(enRecButton);
-    
+
+            enMidiButton.addEventListener('click', (e)=>{
+                var id = e.currentTarget.id;
+                console.log(e.target);
+                var idNum = parseInt(id.charAt(id.length - 1));
+                edit.enableMidiRecording(idNum);
+
+                keyboard.midiNoteCallback = Edit.midiMessageCallback;
+            });
+            
             enRecButton.addEventListener('click', (e)=>{
                 var id = e.currentTarget.id;
                 e.stopPropagation();
@@ -823,11 +969,13 @@ const app = new Vue({
 });
 
 var trackP5 = function(track) {
-
+    
     let playButton = document.getElementById("playButton");
     let newButton = document.getElementById("newTrackButton");
     let recordButton = document.getElementById("recordButton");
     let enRecButtons = document.getElementsByClassName("en-rec");
+
+
     console.log(enRecButtons);
     for(let i = 0; i < enRecButtons.length; i++)
     {
@@ -845,7 +993,49 @@ var trackP5 = function(track) {
 
     track.setup = function(){
 
-        track.createCanvas(edit.width,edit.height);   
+        track.createCanvas(edit.width,edit.height);  
+        
+        keyboard.osc = new p5.TriOsc(); // set frequency and type
+        keyboard.envelope = new p5.Env();
+
+        keyboard.osc.amp(0.5);
+
+        // set attackTime, decayTime, sustainRatio, releaseTime
+        keyboard.envelope.setADSR(0.001, 0.5, 0.1, 0.5);
+  
+        // set attackLevel, releaseLevel
+        keyboard.envelope.setRange(1, 0);
+        var playNote = (freq) => {
+            keyboard.osc.start();
+            keyboard.osc.freq(freq);
+            keyboard.envelope.play(keyboard.osc, 0, 0.1);
+            //osc.stop();
+        };
+
+        var clickNoteCallback = (freq) => {
+            keyboard.osc.start();
+            keyboard.osc.freq(freq);
+            keyboard.envelope.play(keyboard.osc, 0, 0.1);
+            //osc.stop();
+    
+    
+    
+        };
+
+        keyboard.clickNoteCallback = clickNoteCallback;
+
+    
+        var keyNoteCallback = (freq) => {
+            osc.start();
+            osc.freq(freq);
+            envelope.play(keyboard.osc, 0, 0.1);
+            console.log(note);
+    
+        };
+
+        keyboard.keyNoteCallback = keyNoteCallback;
+
+        keyboard.midiNoteCallback = Edit.midiMessageCallback;
     };
 
     track.draw = function(){
@@ -853,9 +1043,9 @@ var trackP5 = function(track) {
     };
 
     function enRecClicked(e){
-       var id = e.target.id;
-       var idNum = parseInt(id.charArt(id.length - 1));
-       edit.enableRecording(idNum)
+        var id = e.currentTarget.id;
+        var idNum = parseInt(id.charAt(id.length - 1));
+        edit.enableRecording(idNum)
     }
 
     function recordButtonClicked(){
