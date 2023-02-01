@@ -80,8 +80,38 @@ let wavesurfer = WaveSurfer.create({
     container: '#waveform'
 });
 
+class MidiTypes
+{
+    static midiList = {
+        "OnScreenKeyboard" : 1
+
+    };
+
+    static noteFreqMapping = {
+        'C': 261.63,
+        'D': 293.66,
+        'E': 329.63,
+        'F': 349.23,
+        'G': 392.00,
+        'A': 440.00,
+        'B': 493.88,
+        'C#': 277.18,
+        'D#': 311.13,
+        'F#': 369.99,
+        'G#': 415.30,
+        'A#': 466.16
+    };
+
+}
+
 class OnScreenKeyboard 
 {
+
+    static recordingStatus = {
+        enabled: false,
+        osc: null,
+        envelope: null
+    }
 
     keyboardMapping = {
         65: 'C',
@@ -126,7 +156,7 @@ class OnScreenKeyboard
         'A': 81,
         'A#': 82,
         'B': 83,
-    }
+    };
 
     static midiNote
 
@@ -284,11 +314,11 @@ class Edit {
         
     }
 
-    enableMidiRecording(trackNum)
+    enableMidiRecording(trackNum, midiType, options=null)
     {
 
         this.midi_recording_track = this.trackList[trackNum];
-        this.midi_recording_track.enableMidiRecording();
+        this.midi_recording_track.enableMidiRecording(midiType, options);
         for(let i = 0; i < this.trackList.length; i++)
         {
             if(i != trackNum)
@@ -300,18 +330,31 @@ class Edit {
 
     record()
     {
-        if(this.recording_track.state == Track.recordingState.READY)
+        if(this.recording_track != null && this.recording_track.state == Track.recordingState.READY)
         {
             this.recording_track.startRecording();
             this.playTransport();
             console.log("Transport Started Recording....");
 
         }
-        else if(this.recording_track.state == Track.recordingState.RECORDING)
+        else if(this.recording_track != null && this.recording_track.state == Track.recordingState.RECORDING)
         {
             this.recording_track.stopRecording();
             this.stopTransport();
             console.log("Transport Stopped Recording....");
+        }
+        else if(this.midi_recording_track != null && this.midi_recording_track.state == Track.midiRecordingState.READY)
+        {
+            this.midi_recording_track.startRecordingMidi();
+            this.playTransport();
+            console.log("Transport Started Recording Midi...");
+
+        }
+        else if(this.midi_recording_track != null && this.midi_recording_track.state == Track.midiRecordingState.RECORDING)
+        {
+            this.midi_recording_track.stopRecordingMidi(Tone.Transport.seconds);
+            this.stopTransport();
+            console.log("Transport Stopped Recording Midi...");
         }
         
     }
@@ -403,6 +446,8 @@ class Track
     trackX = 0;
     trackY = 0;
 
+    transportLoopLength = 240;
+
 
     trackWidth = 600;
     trackHeight = 100;
@@ -418,6 +463,10 @@ class Track
 
     clips = [];
     numClips = 0;
+
+    midiClips = [];
+    numClips = 0;
+    numMidiClips = 0;
 
     name = ``;
     volume = 50;
@@ -436,6 +485,7 @@ class Track
 
 
     curr_midi_notes = [];
+    rec_midi_type = 0;
 
     currSoundFile = null;
 
@@ -469,16 +519,28 @@ class Track
         this.state = Track.recordingState.READY;
     }
 
-    enableMidiRecording()
+    enableMidiRecording(midiType, options=null)
     {
         Edit.midiMessageCallback = (note) => {
             
             var message = new MidiMessage(note, OnScreenKeyboard.midiMapping[note]);
+            message.startTime = Tone.Transport.seconds;
             console.log(message);
             this.curr_midi_notes.push(message);
             console.log(this.curr_midi_notes);
             
         }
+        if(midiType == MidiTypes.midiList.OnScreenKeyboard && options != null)
+        {
+            OnScreenKeyboard.recordingStatus.enabled = options.enabled;
+            OnScreenKeyboard.recordingStatus.osc = options.osc;
+            OnScreenKeyboard.recordingStatus.envelope = options.envelope;
+            //Add more option parameters later.
+            this.rec_midi_type = midiType;
+        }
+
+
+
         this.state = Track.midiRecordingState.READY;
         console.log(`Enable Midi Recording for track: ${this.trackNum}`);
 
@@ -533,15 +595,21 @@ class Track
     {
         if(this.state == Track.midiRecordingState.READY)
         {
+            this.state = Track.midiRecordingState.RECORDING;
+            this.createMidiRecordingClip();
+            console.log(`Started Midi Recording on Track ${this.trackNum}`);
 
         }
     }
 
 
-    stopRecordingMidi()
+    stopRecordingMidi(seconds)
     {
         if(this.state == Track.midiRecordingState.RECORDING)
         {
+            this.state = Track.midiRecordingState.STOPPED;
+            this.init_midi_recording = false;
+            this.loadMidiClip(seconds);
 
         }
 
@@ -561,7 +629,7 @@ class Track
         this.p5.fill("pink");
         var rec_dif_pos = this.p5.map(rec_dif, 0, transportLoopLength, 0, this.p5.width);
         this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
-        this.analyzeMidiRecording(this.init_rec_time, 100, rec_dif_pos, 100);
+        this.analyzeMidiRecording(this.init_rec_time, this.trackY, rec_dif_pos, 100);
     }
 
     createRecordingClip()
@@ -604,14 +672,20 @@ class Track
     analyzeMidiRecording(clipX, clipY, clipWidth, clipHeight)
     {
         this.p5.stroke("black");
-        rect_height = this.p5.map(i, 21, 100, 0, clipY);
+        this.p5.fill("black");
         for(let i = 0; i < this.curr_midi_notes.length; i++)
         {
+            console.log("Drawing Notes");
             var midiNote = this.curr_midi_notes[i];
-            var rect_height = clipHeight/rect_height;
-            var rect_y = this.p5.map(midiNote.midiNum, 21, 100, clipY, (clipY+clipHeight));
-            var rect_width = this.p5.map(1,0, Tone.Transport.seconds,0, clipX, (clipX + clipWidth));
-            this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
+            var rect_height = clipHeight/79;
+            var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(clipY+clipHeight), clipY);
+            var rect_width = this.p5.map(1,0, Tone.Transport.seconds, 0, clipWidth);
+            var rect_x = this.p5.map(midiNote.startTime, 0, Tone.Transport.seconds, clipX, (clipX + clipWidth));
+            //console.log(rect_x);
+            //console.log(rect_y);
+            //console.log(rect_width);
+            //console.log(rect_height);
+            this.p5.rect(rect_x, rect_y, rect_width, rect_height);
 
         }
         
@@ -627,11 +701,60 @@ class Track
         this.state = Track.midiRecordingState.DISABLED;
     }
 
-
-
     setP5(p5Object)
     {
         this.p5 = p5Object;
+    }
+
+    loadMidiClip(duration)
+    {
+        var newClip = new MidiClip(this.numMidiClips, this.trackWidth,this.curr_midi_notes);
+        var lastLength = this.getLastClip();
+        console.log(`Last Length : ${lastLength}`);
+        if(lastLength != 0)
+        {
+            newClip.clipX = lastLength;
+        }else{
+            newClip.clipX = 0;
+        }
+        newClip.clipY = this.trackNum * 100;
+        newClip.p5 = this.p5;
+        newClip.duration = duration;
+        newClip.calcClipLength(this.transportLoopLength);
+        newClip.setMidiType(this.rec_midi_type);
+        newClip.scheduleNotes();
+
+        console.log(newClip);
+        this.midiClips.push(newClip);
+        this.numMidiClips += 1;
+        this.curr_midi_notes = [];
+
+        
+
+    }
+
+    getLastClip()
+    {
+        var lastLength = 0;
+        let max = 0;
+        for(let i = 0; i < this.clips.length; i++)
+        {
+            if(this.clips[i].clipLength > lastLength)
+            {
+                lastLength = this.clips[i].clipLength;
+            }
+
+        }
+
+        for(let i = 0; i< this.midiClips.length; i++)
+        {
+            if(this.midiClips[i].clipLength > lastLength)
+            {
+                lastLength = this.midiClips[i].clipLength;
+            }
+        }
+
+        return lastLength;
     }
 
     loadRecordingClip(soundFile)
@@ -702,9 +825,14 @@ class Track
     {
         this.drawTrack();
         this.drawSoundWave();
+        this.drawMidiClip();
         if(this.init_recording == true)
         {
             this.createRecordingClip();
+        }
+        if(this.init_midi_recording == true)
+        {
+            this.createMidiRecordingClip();
         }
 
         
@@ -776,6 +904,36 @@ class Track
 
     }
 
+    drawMidiClip()
+    {
+        for(let k = 0; k < this.midiClips.length; k++ )
+        {
+            var currClip = this.midiClips[k];
+            var overClip = this.clipHover(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+            this.midiClips[k].hover = overClip;
+
+            this.p5.rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+            this.p5.stroke("pink");
+
+            for(let i = 0; i < currClip.midiNotes.length; i++)
+            {
+                console.log("Drawing Notess");
+                var midiNote = currClip.midiNotes[i];
+                var rect_height = currClip.clipHeight/79;
+                var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(currClip.clipY+currClip.clipHeight), currClip.clipY);
+                var rect_width = this.p5.map(1,0, currClip.duration, 0, currClip.clipLength);
+                var rect_x = this.p5.map(midiNote.startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
+
+                this.p5.rect(rect_x, rect_y, rect_width, rect_height);
+    
+            
+            }
+
+            
+
+        }
+    }
+
     mousePressed()
     {
         for(let i = 0; i < this.clips.length; i++)
@@ -832,7 +990,6 @@ class Track
 
 }
 
-
 class Clip 
 {
 
@@ -872,6 +1029,93 @@ class Clip
         this.clipLength = this.p5.map(this.p5Player.duration(), 0, this.transportLoopLength, 0, this.trackWidth);
     }
     
+}
+
+
+class MidiClip
+{
+    clipStartTime = 0;
+
+    clipX = 0;
+    clipY = 0;
+
+    clipLength = 0;
+    clipHeight = 100;
+
+    index = 0;
+    transportLoopLength = 240;
+
+    hover = false;
+    lockClip = false;
+
+    xLock = 0;
+    oldX = this.clipX;
+
+
+    midiNotes = [];
+    synth = '';
+    duration = 0;
+
+    midiType = 0;
+
+    //Find alternative 
+    osc = null;
+    envelope = null;
+
+    sampler = null;
+
+    p5 = null;
+    
+
+
+    constructor(index, trackWidth, midiNotes)
+    {
+        this.index = index;
+        this.trackWidth = trackWidth;
+        this.midiNotes = midiNotes;
+        
+    }
+
+    calcClipLength(transportLoopLength)
+    {
+        this.transportLoopLength = transportLoopLength;
+        this.clipLength = this.p5.map(this.duration, 0, this.transportLoopLength, 0, this.trackWidth);
+        console.log(`Midi Clip Length: ${this.clipLength}`);
+
+    }
+
+    setMidiType(midiType)
+    {
+        if(midiType == MidiTypes.midiList.OnScreenKeyboard && OnScreenKeyboard.recordingStatus.enabled)
+        {
+            
+            this.osc = OnScreenKeyboard.recordingStatus.osc;
+            this.envelope = OnScreenKeyboard.recordingStatus.envelope;    
+
+            console.log(`Set Clip Midi Type`);
+        }
+
+    }
+
+    scheduleNotes()
+    {
+        for(let i = 0; i < this.midiNotes.length; i++)
+        {
+            let midiNote = this.midiNotes[i];
+            let osc = this.osc;
+            let envelope = this.envelope
+            Tone.Transport.schedule(function(time){
+                osc.amp(0);
+                envelope.setADSR(0.001, 0.5, 0.1, 0.5);
+                osc.start();
+                let freq = MidiTypes.noteFreqMapping[midiNote.note];
+                osc.freq(freq);
+                envelope.play(osc, 0, 0.1);
+                console.log(`Playing scheduled note: ${midiNote.note}`)
+            }, midiNote.startTime);
+            
+        }
+    }
 }
 
 //wavesurfer.load('assets/DrakeOverdrive.wav');
@@ -940,10 +1184,15 @@ const app = new Vue({
             console.log(enRecButton);
 
             enMidiButton.addEventListener('click', (e)=>{
+                let options = {
+                    "enabled": true,
+                    "osc": keyboard.osc,
+                    "envelope": keyboard.envelope,
+                };
                 var id = e.currentTarget.id;
                 console.log(e.target);
                 var idNum = parseInt(id.charAt(id.length - 1));
-                edit.enableMidiRecording(idNum);
+                edit.enableMidiRecording(idNum,MidiTypes.midiList.OnScreenKeyboard ,options);
 
                 keyboard.midiNoteCallback = Edit.midiMessageCallback;
             });
@@ -974,7 +1223,7 @@ var trackP5 = function(track) {
     let newButton = document.getElementById("newTrackButton");
     let recordButton = document.getElementById("recordButton");
     let enRecButtons = document.getElementsByClassName("en-rec");
-
+    //ADD MIDI ENABLED HERE LATER ON
 
     console.log(enRecButtons);
     for(let i = 0; i < enRecButtons.length; i++)
