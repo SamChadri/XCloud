@@ -104,8 +104,125 @@ class MidiTypes
 
 }
 
+class Timer {
+    totalTime = 0.0;
+    timerId = null;
+    constructor()
+    {
+
+    }
+
+    startTimer()
+    {
+        var currTimer = this;
+        this.timerId = setInterval(function(){ currTimer.timerInterval(currTimer)}, 100);
+    }
+
+    stopTimer()
+    {
+        clearInterval(this.timerId);
+        console.log(`Seconds Passed: ${this.totalTime}`);
+        return this.totalTime;
+    }
+
+    resetTimer()
+    {
+        this.totalTime = 0;
+    }
+
+    timerInterval(timer)
+    {
+        timer.totalTime += 0.1;
+        //console.log(`Increasing time interval ${this.totalTime}`);
+
+
+    }
+}
+
+class StepSequencer
+{
+    channelMatrix = new Array(4);
+    numChannels = 4;
+    
+    numBars = 4;
+    numBeats = 16
+
+    sequence = null;
+
+    cellWidth = 0;
+    cellHeight = 0;
+
+    
+
+    channels = {};
+    p5 = null;
+    sounds = [
+                'assets/Acoustic-Shaker.mp3',
+                'assets/Bass-Drum.mp3',
+                'assets/HH-Closed.mp3',
+                'assets/Snare-Drum.mp3'
+    ];
+
+    constructor(bars, p5)
+    {
+        this.numBars = bars;
+        this.p5 = p5;
+        
+        //MIGHT MAKE THIS INTO AN OBJECT
+        for(let i = 0; i < this.numChannels; i++)
+        {
+            this.channels[i] = {};
+
+            this.channels[i]['matrix'] = new Array(this.numBars * 4);
+            for(let k = 0; i < this.channels[i]['matrix'].length; k++)
+            {
+                this.channels[i]['matrix'][k] = Math.round(Math.random());
+            }
+
+            this.channels[i]['sound'] = this.p5.loadSound(this.sounds[i], () => {});
+            var stepSequencer = this;
+
+            this.channels[i]['phrase'] = new this.p5.Phrase(`channel-${i}`,(time) =>{
+                stepSequencer.channels[i]['sound'].play(time);
+            }, this.channels[i]['matrix']);
+        }
+    }
+
+
+
+
+    draw()
+    {
+
+    }
+
+
+    drawGrid()
+    {
+        this.cellWidth = this.p5.width / this.numBeats;
+        this.cellHeight = this.p5.height / this.numChannels;
+
+    
+        
+
+    }
+
+
+
+    drawPlayHead()
+    {
+
+    }
+
+
+}
+
 class OnScreenKeyboard 
 {
+    static events = {
+        "MOUSEDOWN" : 1,
+        "MOUSEUP" : 2
+    }
 
     static recordingStatus = {
         enabled: false,
@@ -165,12 +282,15 @@ class OnScreenKeyboard
     clickNoteCallback = () => {};
     keyNoteCallback = () => {};
 
+    mouseDownCallback = () => {};
+    mouseUpCallback = () => {};
+
     midiNoteCallback = () => {};
 
     osc = null;
     envelope = null;
 
-
+    timer = null;
 
 
     keys = document.querySelectorAll('.key');
@@ -185,15 +305,25 @@ class OnScreenKeyboard
             key.addEventListener("transitionend", (e)=>{
                 if(e.propertyName !== "transform") return;
                 console.log(e);
-                e.target.classList.remove("playing");
+                //e.target.classList.remove("playing");
             });
         });
 
         keys.forEach((key) =>{
-            key.addEventListener('click', () => this.clickNote(key));
+            //key.addEventListener('click', () => this.clickNote(key));
+        });
+
+        keys.forEach((key) => {
+            key.addEventListener('mousedown', () => this.mouseDownNote(key));
+        });
+
+        keys.forEach((key) => {
+            key.addEventListener('mouseup', () => this.mouseUpNote(key));
         });
     
         document.addEventListener('keydown', (e) => this.keyNote(e));
+
+        this.timer = new Timer();
     }
 
 
@@ -207,14 +337,51 @@ class OnScreenKeyboard
         this.clickNoteCallback = callback;
     }
 
+    setMouseDownCallback(callback)
+    {
+        this.mouseDownCallback = callback;
+    }
+
+    setMouseUpCallback(callback)
+    {
+        this.mouseUpCallback = callback;
+    }
+
     setMidiNoteCallback(callback)
     {
         this.midiNoteCallback = callback;
     }
 
-    clickNote(key)
+    mouseDownNote(key)
     {
         const note = key.dataset.note;
+        let freq = noteFreqMapping[note];
+        this.mouseDownCallback(freq);
+        this.midiNoteCallback(note,0,OnScreenKeyboard.events.MOUSEDOWN);
+        this.timer.startTimer();
+        
+        console.log('MouseDown event');
+        key.classList.add('playing');
+    }
+
+    mouseUpNote(key)
+    {
+        const note = key.dataset.note;
+        let freq = noteFreqMapping[note];
+        this.mouseUpCallback();
+        var timeElapsed = this.timer.stopTimer();
+        this.timer.resetTimer();
+
+        this.midiNoteCallback(note, timeElapsed, OnScreenKeyboard.events.MOUSEUP);
+
+        key.classList.remove('playing');
+
+    }
+
+    clickNote(key)
+    {
+        console.log(key);
+        const note = key.dataset.note;//We're gonna have to do these dynamically soon.
         let freq = noteFreqMapping[note];
         this.clickNoteCallback(freq);
         this.midiNoteCallback(note);
@@ -483,7 +650,7 @@ class Track
     init_recording = false;
     init_midi_recording = false;
 
-
+    currNoteStart = 0;
     curr_midi_notes = [];
     rec_midi_type = 0;
 
@@ -521,13 +688,22 @@ class Track
 
     enableMidiRecording(midiType, options=null)
     {
-        Edit.midiMessageCallback = (note) => {
-            
-            var message = new MidiMessage(note, OnScreenKeyboard.midiMapping[note]);
-            message.startTime = Tone.Transport.seconds;
-            console.log(message);
-            this.curr_midi_notes.push(message);
-            console.log(this.curr_midi_notes);
+        Edit.midiMessageCallback = (note, duration, event) => {
+            if(event == OnScreenKeyboard.events.MOUSEDOWN)
+            {
+                this.currNoteStart = Tone.Transport.seconds;
+
+            }else
+            {
+                var message = new MidiMessage(note, OnScreenKeyboard.midiMapping[note]);
+                message.startTime = this.currNoteStart;
+                message.duration = duration;
+                console.log(message);
+                this.curr_midi_notes.push(message);
+                console.log(this.curr_midi_notes);
+                this.currNoteStart = 0;
+            }
+
             
         }
         if(midiType == MidiTypes.midiList.OnScreenKeyboard && options != null)
@@ -679,11 +855,11 @@ class Track
             var midiNote = this.curr_midi_notes[i];
             var rect_height = clipHeight/79;
             var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(clipY+clipHeight), clipY);
-            var rect_width = this.p5.map(1,0, Tone.Transport.seconds, 0, clipWidth);
+            var rect_width = this.p5.map(midiNote.duration,0, Tone.Transport.seconds, 0, clipWidth);
             var rect_x = this.p5.map(midiNote.startTime, 0, Tone.Transport.seconds, clipX, (clipX + clipWidth));
             //console.log(rect_x);
             //console.log(rect_y);
-            //console.log(rect_width);
+            console.log(rect_width);
             //console.log(rect_height);
             this.p5.rect(rect_x, rect_y, rect_width, rect_height);
 
@@ -921,7 +1097,7 @@ class Track
                 var midiNote = currClip.midiNotes[i];
                 var rect_height = currClip.clipHeight/79;
                 var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(currClip.clipY+currClip.clipHeight), currClip.clipY);
-                var rect_width = this.p5.map(1,0, currClip.duration, 0, currClip.clipLength);
+                var rect_width = this.p5.map(midiNote.duration,0, currClip.duration, 0, currClip.clipLength);
                 var rect_x = this.p5.map(midiNote.startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
 
                 this.p5.rect(rect_x, rect_y, rect_width, rect_height);
@@ -1105,12 +1281,13 @@ class MidiClip
             let osc = this.osc;
             let envelope = this.envelope
             Tone.Transport.schedule(function(time){
-                osc.amp(0);
-                envelope.setADSR(0.001, 0.5, 0.1, 0.5);
+                envelope.setADSR(0.001, 0.5, 0.3, 0.5);
                 osc.start();
                 let freq = MidiTypes.noteFreqMapping[midiNote.note];
                 osc.freq(freq);
-                envelope.play(osc, 0, 0.1);
+                envelope.triggerAttack(osc);
+                envelope.triggerRelease(osc,midiNote.duration)
+                //envelope.play(osc, 0, midiNote.duration);
                 console.log(`Playing scheduled note: ${midiNote.note}`)
             }, midiNote.startTime);
             
@@ -1244,22 +1421,36 @@ var trackP5 = function(track) {
 
         track.createCanvas(edit.width,edit.height);  
         
-        keyboard.osc = new p5.TriOsc(); // set frequency and type
+        keyboard.osc = new p5.Oscillator('triangle'); // set frequency and type
         keyboard.envelope = new p5.Env();
 
         keyboard.osc.amp(0.5);
 
         // set attackTime, decayTime, sustainRatio, releaseTime
-        keyboard.envelope.setADSR(0.001, 0.5, 0.1, 0.5);
+        keyboard.envelope.setADSR(0.001, 0.5, 0.3, 0.5);
   
         // set attackLevel, releaseLevel
         keyboard.envelope.setRange(1, 0);
         var playNote = (freq) => {
             keyboard.osc.start();
             keyboard.osc.freq(freq);
-            keyboard.envelope.play(keyboard.osc, 0, 0.1);
+            keyboard.triggerAttack(keyboard.osc);
+            //keyboard.envelope.play(keyboard.osc, 0, 0.1);
             //osc.stop();
         };
+
+        var mouseDownCallback = (freq) => {
+            keyboard.osc.start();
+            keyboard.osc.freq(freq);
+            keyboard.envelope.triggerAttack(keyboard.osc);
+        };
+
+        var mouseUpCallback = () => {
+            keyboard.envelope.triggerRelease(keyboard.osc);
+        }
+
+        keyboard.setMouseDownCallback(mouseDownCallback);
+        keyboard.setMouseUpCallback(mouseUpCallback);
 
         var clickNoteCallback = (freq) => {
             keyboard.osc.start();
@@ -1271,7 +1462,7 @@ var trackP5 = function(track) {
     
         };
 
-        keyboard.clickNoteCallback = clickNoteCallback;
+        //keyboard.clickNoteCallback = clickNoteCallback;
 
     
         var keyNoteCallback = (freq) => {
