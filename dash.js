@@ -3,7 +3,6 @@
 import Vue from 'vue'
 //import Vue from 'https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.esm.browser.js'
 
-import { getCurrentInstance } from 'vue';
 
 
 let whiteNoise = new p5.Noise();
@@ -76,9 +75,6 @@ let noteFreqMapping = {
 
 
 
-let wavesurfer = WaveSurfer.create({
-    container: '#waveform'
-});
 
 class MidiTypes
 {
@@ -139,6 +135,50 @@ class Timer {
     }
 }
 
+class SSModal 
+{
+    init = false;
+    ssId = "";
+    p5Id = "";
+
+    ssModal = null;
+    p5Instance = null;
+
+    constructor(ssId)
+    {
+        this.ssId = ssId;
+        this.ssModal = new bootstrap.Modal(document.getElementById(ssId),{
+            keyboard: false,
+        });
+        
+    }
+
+    createP5Instance(p5Id, p5Function)
+    {
+        if(this.init == false)
+        {
+            this.p5Id = p5Id;
+            this.p5Instance = new p5(p5Function, p5Id);
+            this.init = true;
+        }
+
+
+    }
+
+
+    showModal()
+    {
+        this.ssModal.show();
+    }
+
+    hideModal()
+    {
+        this.ssModal.hide();
+    }
+
+
+}
+
 class StepSequencer
 {
     channelMatrix = new Array(4);
@@ -163,29 +203,40 @@ class StepSequencer
                 'assets/Snare-Drum.mp3'
     ];
 
-    constructor(bars, p5)
+    constructor(bars)
     {
         this.numBars = bars;
-        this.p5 = p5;
+        this.numBeats = bars * 4;
         
         //MIGHT MAKE THIS INTO AN OBJECT
         for(let i = 0; i < this.numChannels; i++)
         {
             this.channels[i] = {};
-
-            this.channels[i]['matrix'] = new Array(this.numBars * 4);
-            for(let k = 0; i < this.channels[i]['matrix'].length; k++)
+            
+            this.channels[i]['matrix'] = new Array(this.numBeats);
+            for(let k = 0; k < this.channels[i]['matrix'].length; k++)
             {
                 this.channels[i]['matrix'][k] = Math.round(Math.random());
             }
+            
 
+        }
+    }
+
+    setP5(p5Object)
+    {
+        this.p5 = p5Object;
+        for(let i = 0; i < this.numChannels; i++)
+        {
             this.channels[i]['sound'] = this.p5.loadSound(this.sounds[i], () => {});
             var stepSequencer = this;
 
-            this.channels[i]['phrase'] = new this.p5.Phrase(`channel-${i}`,(time) =>{
+            this.channels[i]['phrase'] = new p5.Phrase(`channel-${i}`,(time) =>{
                 stepSequencer.channels[i]['sound'].play(time);
             }, this.channels[i]['matrix']);
-        }
+
+        } 
+
     }
 
 
@@ -193,7 +244,7 @@ class StepSequencer
 
     draw()
     {
-
+        this.drawGrid();
     }
 
 
@@ -201,9 +252,16 @@ class StepSequencer
     {
         this.cellWidth = this.p5.width / this.numBeats;
         this.cellHeight = this.p5.height / this.numChannels;
+        this.p5.stroke("pink")
+        for(let i = 0; i < this.numBeats + 1; i++)
+        {
+            this.p5.line(i*this.cellWidth, 0, i*this.cellWidth, this.p5.height);
+        }
 
-    
-        
+        for(let i = 0; i < this.numChannels + 1; i++)
+        {
+            this.p5.line(0, i*this.cellHeight, this.p5.width, i*this.cellHeight);
+        }  
 
     }
 
@@ -216,6 +274,7 @@ class StepSequencer
 
 
 }
+
 
 class OnScreenKeyboard 
 {
@@ -1314,6 +1373,11 @@ const blackNotes = document.querySelectorAll('.key.black');
 
 let edit  = new Edit(600, 100);
 let keyboard = new OnScreenKeyboard();
+let stepSequencer = new StepSequencer(4);
+let ssModal = new SSModal('stepModal');
+
+
+
 
 const app = new Vue({
     el: '#tracks',
@@ -1525,6 +1589,43 @@ var trackP5 = function(track) {
         edit.mouseReleased();
     };
 };
+
+var stepSequenceP5 = function(ss5){
+    
+
+
+    ss5.preload = function(){
+        stepSequencer.setP5(ss5);
+    }
+
+    ss5.setup = function(){
+        ss5.createCanvas(300, 200);
+        ss5.background("black");
+    }
+
+    ss5.draw = function(){
+        stepSequencer.draw();
+    }
+
+
+}
+
+
+var ssButton = document.getElementById('ssButton');
+
+ssButton.onclick = () =>  {
+    console.log('SS Button Clicked');
+    ssModal.showModal();
+    ssModal.createP5Instance("stepSequencer", stepSequenceP5);
+}
+
+
+
+
+
+
+//var ssP5 = new p5(stepSequenceP5, "stepSeqencer");
+
 
 var editP = new p5(trackP5, 'track1');
 var tempTracks = edit.trackList;
