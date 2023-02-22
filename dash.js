@@ -181,6 +181,12 @@ class SSModal
 
 class StepSequencer
 {
+    static playbackState = {
+        "READY" : 0,
+        "PLAYING" : 1,
+        "STOPPED" : 2,
+        "RECORDING" : 3,
+    }
     channelMatrix = new Array(4);
     numChannels = 4;
     
@@ -192,15 +198,22 @@ class StepSequencer
     cellWidth = 0;
     cellHeight = 0;
 
+    initButtons = 0;
+
+    ssPart = null;
+
+    currState = StepSequencer.playbackState.READY;
     
 
     channels = {};
     p5 = null;
     sounds = [
-                'assets/Acoustic-Shaker.mp3',
                 'assets/Bass-Drum.mp3',
+                'assets/Snare-Drum.mp3',
                 'assets/HH-Closed.mp3',
-                'assets/Snare-Drum.mp3'
+                'assets/Acoustic-Shaker.mp3',
+
+
     ];
 
     constructor(bars)
@@ -218,25 +231,46 @@ class StepSequencer
             {
                 this.channels[i]['matrix'][k] = Math.round(Math.random());
             }
-            
-
         }
     }
 
     setP5(p5Object)
     {
         this.p5 = p5Object;
+        this.ssPart = new p5.Part();
         for(let i = 0; i < this.numChannels; i++)
         {
-            this.channels[i]['sound'] = this.p5.loadSound(this.sounds[i], () => {});
             var stepSequencer = this;
+            this.channels[i]['sound'] = this.p5.loadSound(this.sounds[i], () => {
+                stepSequencer.channels[i]['phrase'] = new p5.Phrase(`channel-${i}`,(time) =>{
+                    stepSequencer.channels[i]['sound'].play(time);
+                }, stepSequencer.channels[i]['matrix']);
+                console.log(`Loaded sound: ${stepSequencer.sounds[i]}`);
 
-            this.channels[i]['phrase'] = new p5.Phrase(`channel-${i}`,(time) =>{
-                stepSequencer.channels[i]['sound'].play(time);
-            }, this.channels[i]['matrix']);
+                stepSequencer.ssPart.addPhrase(this.channels[i]['phrase']);
+
+            });
 
         } 
 
+    }
+
+
+    playLoop()
+    {
+
+        this.p5.userStartAudio();
+        this.ssPart.loop();
+        this.currState = StepSequencer.playbackState.PLAYING;
+        console.log("Playing Step Sequencer Loop");
+
+    }
+
+    stop()
+    {
+        this.ssPart.stop();
+        this.currState = StepSequencer.playbackState.READY;
+        console.log("Stopping Step Sequencer");
     }
 
 
@@ -247,14 +281,38 @@ class StepSequencer
         this.drawGrid();
     }
 
+    detectCell()
+    {
+        for(let i = 0; i < this.numBeats; i++)
+        {
+            var currX = i * this.cellWidth;
+            var nextX = (i+1) * this.cellWidth;
+            if(this.p5.mouseX >= currX && this.p5.mouseX < nextX)
+            {
+                for(let k = 0; k < this.numChannels; k++)
+                {
+                    var currY = k * this.cellHeight;
+                    var nextY = (k+1) * this.cellHeight;
+                    if(this.p5.mouseY >= currY && this.p5.mouseY < nextY)
+                    {
+                        this.channels[k]['matrix'][i] ^= 1;
+                        console.log(this.channels[k]['matrix'][i]);
+                    }
+                }
+            } 
+        }
+
+    }
+
 
     drawGrid()
     {
         this.cellWidth = this.p5.width / this.numBeats;
         this.cellHeight = this.p5.height / this.numChannels;
-        this.p5.stroke("pink")
+        this.p5.stroke("pink");
         for(let i = 0; i < this.numBeats + 1; i++)
         {
+
             this.p5.line(i*this.cellWidth, 0, i*this.cellWidth, this.p5.height);
         }
 
@@ -262,6 +320,29 @@ class StepSequencer
         {
             this.p5.line(0, i*this.cellHeight, this.p5.width, i*this.cellHeight);
         }  
+
+        for(let i = 0; i < this.numBeats; i++)
+        {
+            for(let k = 0; k < this.numChannels; k++)
+            {
+                
+                if(this.channels[k]['matrix'][i] == 1)
+                {
+                    this.p5.fill("white")
+                    //this.p5.ellipse(xPos, yPos, 10,10 );
+                }else{
+                    this.p5.fill('black');
+                }
+
+                var xPos = (i*this.cellWidth) + (this.cellWidth /2);
+                var yPos = (k*this.cellHeight) + (this.cellHeight/2);
+                this.p5.rect(i*this.cellWidth,k*this.cellHeight, this.cellWidth, this.cellHeight);
+
+            }
+            
+        }
+
+
 
     }
 
@@ -449,6 +530,7 @@ class OnScreenKeyboard
 
     keyNote(event)
     {
+        /*
         const note = keyboardMapping[event.keyCode];
         let freq = noteFreqMapping[note];
 
@@ -456,6 +538,7 @@ class OnScreenKeyboard
         
         let key = document.querySelector(`.key[data-note="${note}"]`);
         key.classList.add('playing');
+        */
     }
 
 
@@ -1462,6 +1545,7 @@ var trackP5 = function(track) {
     
     let playButton = document.getElementById("playButton");
     let newButton = document.getElementById("newTrackButton");
+    let stopButton = document.getElementById("stopButton");
     let recordButton = document.getElementById("recordButton");
     let enRecButtons = document.getElementsByClassName("en-rec");
     //ADD MIDI ENABLED HERE LATER ON
@@ -1473,6 +1557,9 @@ var trackP5 = function(track) {
         enRecButtons[i].addEventListener('click', (e)=>{ enRecClicked(e)});
     }
     playButton.onclick = playButtonClicked;
+    stopButton.onclick = () => {
+        edit.stopTransport();
+    }
     newButton.onclick = addTrackClicked;
     recordButton.onclick = recordButtonClicked;
     track.preload = function(){
@@ -1607,6 +1694,31 @@ var stepSequenceP5 = function(ss5){
         stepSequencer.draw();
     }
 
+    
+
+    ss5.keyPressed = function(){
+        if(ss5.key == " ")
+        {
+            if(stepSequencer.currState == StepSequencer.playbackState.READY )
+            {
+                console.log("Looping step sequencer");
+                stepSequencer.playLoop();
+
+            }
+            else if(stepSequencer.currState == StepSequencer.playbackState.PLAYING)
+            {
+                stepSequencer.stop();
+            }
+
+        }
+    }
+
+    
+
+    ss5.mousePressed = function(){
+        stepSequencer.detectCell();
+    }
+
 
 }
 
@@ -1630,7 +1742,13 @@ ssButton.onclick = () =>  {
 var editP = new p5(trackP5, 'track1');
 var tempTracks = edit.trackList;
 
-
+$(function() {
+    $(".dial").knob({
+        'height': 30,
+        'width': 30,
+        'displayInput': false
+    });
+});
 
 //app.mount('#tracks');
 
