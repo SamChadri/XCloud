@@ -191,7 +191,9 @@ class StepSequencer
     numChannels = 4;
     
     numBars = 4;
-    numBeats = 16
+    numBeats = 16;
+
+    duration = 0;
 
     sequence = null;
 
@@ -220,6 +222,7 @@ class StepSequencer
     {
         this.numBars = bars;
         this.numBeats = bars * 4;
+        
         
         //MIGHT MAKE THIS INTO AN OBJECT
         for(let i = 0; i < this.numChannels; i++)
@@ -252,6 +255,10 @@ class StepSequencer
             });
 
         } 
+        //var secondsPerBeat = 60/this.ssPart.getBPM();
+        //this.duration = secondsPerBeat * this.numBeats;
+        console.log(this.ssPart);
+        console.log(this.ssPart.metro.bpm )
 
     }
 
@@ -278,7 +285,27 @@ class StepSequencer
 
     draw()
     {
+        
+
         this.drawGrid();
+    }
+
+    transferStepSequence(edit)
+    {
+        console.log(Tone.Transport.bpm.value);
+        var transferPart = new p5.Part();
+
+
+        for(let i = 0; i < this.numChannels; i++)
+        {
+            transferPart.addPhrase(this.channels[i]['phrase']);
+        }
+
+        transferPart.setBPM(Tone.Transport.bpm.value);
+        var secondsPerBeat = 60/transferPart.metro.bpm;
+        this.duration = secondsPerBeat * this.numBeats;
+
+        edit.confirmStepSequence(transferPart, this.duration);
     }
 
     detectCell()
@@ -637,6 +664,7 @@ class Edit {
         }
     }
 
+
     record()
     {
         if(this.recording_track != null && this.recording_track.state == Track.recordingState.READY)
@@ -673,6 +701,12 @@ class Edit {
         //Create the rect and add notes that correspond using the map function.
     }
 
+    confirmStepSequence(ssPart, duration)
+    {
+        var newTrack = this.createTrack();
+        newTrack.loadSSClip(ssPart, duration);
+    }
+
     createTrack(width, height)
     {
         var newTrack = new Track(this.numTracks,600, 100,transportLoopLength);
@@ -686,6 +720,7 @@ class Edit {
         }
         this.trackList.push(newTrack);
         this.numTracks += 1;
+        return newTrack;
 
         
     }
@@ -776,6 +811,9 @@ class Track
     midiClips = [];
     numClips = 0;
     numMidiClips = 0;
+
+    ssClips = [];
+    numSSClips = 0;
 
     name = ``;
     volume = 50;
@@ -1024,6 +1062,23 @@ class Track
         this.p5 = p5Object;
     }
 
+    loadSSClip(ssPart, duration)
+    {
+        var newClip = new SSClip(this.numSSClips, ssPart, this.trackWidth);
+        var lastLength = this.getLastClip();
+        newClip.clipX = lastLength;
+
+        newClip.clipY = this.trackNum * 100;
+        newClip.p5 = this.p5;
+        newClip.duration = duration;
+        newClip.calcClipLength(this.transportLoopLength);
+        newClip.setStartTime();
+        newClip.scheduleSequence();
+
+        this.ssClips.push(newClip);
+        this.numSSClips += 1;
+    }
+
     loadMidiClip(duration)
     {
         var newClip = new MidiClip(this.numMidiClips, this.trackWidth,this.curr_midi_notes);
@@ -1069,6 +1124,13 @@ class Track
             if(this.midiClips[i].clipLength > lastLength)
             {
                 lastLength = this.midiClips[i].clipLength;
+            }
+        }
+        for(let i = 0; i< this.ssClips.length; i++)
+        {
+            if(this.ssClips[i].clipLength > lastLength)
+            {
+                lastLength = this.ssClips[i].clipLength;
             }
         }
 
@@ -1339,6 +1401,7 @@ class Clip
         this.tonePlayer = tonePlayer;
         this.trackWidth = trackWidth;
     }
+    
 
     calcClipLength(transportLoopLength)
     {
@@ -1437,6 +1500,66 @@ class MidiClip
     }
 }
 
+class SSClip
+{
+    clipStartTime = 0;
+
+    clipX = 0;
+    clipY = 0;
+
+    clipLength = 0;
+    clipHeight = 100;
+    p5Player = null;
+    tonePlayer = null;
+    index = 0;
+    transportLoopLength = 240;
+
+    hover = false;
+    lockClip = false;
+
+    xLock = 0;
+    oldX = this.clipX;
+
+    p5 = null;
+
+    ssPart = null;
+
+
+    constructor(index, ssPart, trackWidth)
+    {
+        this.index = index;
+        this.ssPart = ssPart;
+        this.trackWidth = trackWidth;
+    }
+    setStartTime()
+    {
+        this.clipStartTime = this.p5.map(this.clipX, 0, this.trackWidth, 0, this.transportLoopLength);
+    }
+
+    calcClipLength(transportLoopLength)
+    {
+        this.transportLoopLength = transportLoopLength;
+        this.clipLength = this.p5.map(this.duration, 0, this.transportLoopLength, 0, this.trackWidth);
+        console.log(`Midi Clip Length: ${this.clipLength}`);
+
+    }
+
+    scheduleSequence()
+    {
+        var thisPart = this.ssPart;
+        var p5 = this.p5;
+        Tone.Transport.schedule(function(time){
+            p5.userStartAudio();
+            
+            thisPart.start();
+            //envelope.play(osc, 0, midiNote.duration);
+            //console.log(`Playing scheduled note: ${midiNote.note}`)
+        }, this.clipStartTime);
+
+    }
+
+
+}
 //wavesurfer.load('assets/DrakeOverdrive.wav');
 
 //Do Something with the bpm later when I really start working with transport.
@@ -1679,7 +1802,10 @@ var trackP5 = function(track) {
 
 var stepSequenceP5 = function(ss5){
     
-
+    var confirmButtonClicked = document.getElementById("ssConfirmButton");
+    confirmButtonClicked.onclick = () => {
+        stepSequencer.transferStepSequence(edit);
+    }
 
     ss5.preload = function(){
         stepSequencer.setP5(ss5);
@@ -1744,8 +1870,8 @@ var tempTracks = edit.trackList;
 
 $(function() {
     $(".dial").knob({
-        'height': 30,
-        'width': 30,
+        'height': 15,
+        'width':15,
         'displayInput': false
     });
 });
