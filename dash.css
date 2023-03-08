@@ -65,5 +65,10 @@
 
 
 .slider{
-    
+
+}
+
+.edit-track{
+    overflow-x: auto;
+    overflow-y: hidden;
 }

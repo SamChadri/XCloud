@@ -257,8 +257,11 @@ class StepSequencer
         } 
         //var secondsPerBeat = 60/this.ssPart.getBPM();
         //this.duration = secondsPerBeat * this.numBeats;
+        this.ssPart.metro.tatums = 2;
         console.log(this.ssPart);
-        console.log(this.ssPart.metro.bpm )
+        console.log(this.ssPart.phrases.length);
+        //this.ssPart.setBPM('a');
+
 
     }
 
@@ -298,12 +301,19 @@ class StepSequencer
 
         for(let i = 0; i < this.numChannels; i++)
         {
-            transferPart.addPhrase(this.channels[i]['phrase']);
-        }
+            var copyMatrix = stepSequencer.channels[i]['matrix'].map(a => {return a});
+            var copyPhrase = new p5.Phrase(`channel-${i}`,(time) =>{
+                stepSequencer.channels[i]['sound'].play(time);
+            }, copyMatrix);
+            transferPart.addPhrase(copyPhrase);
 
+        }
+        transferPart.metro.tatums = this.ssPart.metro.tatums;
         transferPart.setBPM(Tone.Transport.bpm.value);
-        var secondsPerBeat = 60/transferPart.metro.bpm;
+        var secondsPerBeat = 60/(transferPart.metro.bpm * transferPart.metro.tatums);
         this.duration = secondsPerBeat * this.numBeats;
+
+        console.log(`Step Sequence Duration: ${this.duration}`);
 
         edit.confirmStepSequence(transferPart, this.duration);
     }
@@ -709,7 +719,7 @@ class Edit {
 
     createTrack(width, height)
     {
-        var newTrack = new Track(this.numTracks,600, 100,transportLoopLength);
+        var newTrack = new Track(this.numTracks,this.width,this.height,this.transportLoopLength);
 
         newTrack.setP5(this.p5);
 
@@ -762,8 +772,7 @@ class Edit {
     drawPlayHead()
     {
         this.p5.stroke("green");
-        transportLoopLength = 240;
-        this.p5.rect(this.p5.map(Tone.Transport.seconds, 0, transportLoopLength, 0, this.p5.width), 0, 2, 200);
+        this.p5.rect(this.p5.map(Tone.Transport.seconds, 0, this.transportLoopLength, 0, this.p5.width), 0, 2, 200);
     }
 }
 
@@ -814,6 +823,8 @@ class Track
 
     ssClips = [];
     numSSClips = 0;
+
+    
 
     name = ``;
     volume = 50;
@@ -1071,6 +1082,7 @@ class Track
         newClip.clipY = this.trackNum * 100;
         newClip.p5 = this.p5;
         newClip.duration = duration;
+        console.log(`Transport Loop Length: ${this.transportLoopLength}`);
         newClip.calcClipLength(this.transportLoopLength);
         newClip.setStartTime();
         newClip.scheduleSequence();
@@ -1152,7 +1164,7 @@ class Track
             }
             newClip.clipY = this.trackNum * 100;
             newClip.p5 = this.p5;
-            newClip.calcClipLength(transportLoopLength);
+            newClip.calcClipLength(this.transportLoopLength);
             console.log(newClip);
             this.clips.push(newClip);
             this.numClips += 1;
@@ -1183,7 +1195,7 @@ class Track
                 }
                 newClip.clipY = this.trackNum * 100;
                 newClip.p5 = this.p5;
-                newClip.calcClipLength(transportLoopLength);
+                newClip.calcClipLength(this.transportLoopLength);
                 console.log(newClip);
                 this.clips.push(newClip)
                 this.numClips += 1;
@@ -1206,6 +1218,8 @@ class Track
         this.drawTrack();
         this.drawSoundWave();
         this.drawMidiClip();
+        this.drawSSClip();
+
         if(this.init_recording == true)
         {
             this.createRecordingClip();
@@ -1305,12 +1319,46 @@ class Track
                 var rect_x = this.p5.map(midiNote.startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
 
                 this.p5.rect(rect_x, rect_y, rect_width, rect_height);
-    
-            
             }
 
             
 
+        }
+    }
+
+    drawSSClip()
+    {
+        for(let k = 0; k < this.ssClips.length; k++)
+        {
+            var currClip = this.ssClips[k];
+            var overClip = this.clipHover(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+            this.ssClips[k].hover = overClip;
+
+            this.p5.rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
+            //console.log(currClip.ssPart.phrases.length);
+            this.p5.stroke("pink");
+
+            var numChannels = currClip.ssPart.phrases.length;
+            var rect_height = currClip.clipHeight/numChannels;
+            for(let i = 0; i < numChannels; i++)
+            {
+                for(let s = 0; s < currClip.ssPart.phrases[i].sequence.length; s++)
+                {
+                    //console.log("Inside Sequence")
+                    if(currClip.ssPart.phrases[i].sequence[s] == 1)
+                    {
+                        var rect_y = this.p5.map(i, 0, numChannels,(currClip.clipY+currClip.clipHeight), currClip.clipY);
+                        var rect_width = this.p5.map(1,0, currClip.duration, 0, currClip.clipLength);
+                        var startTime = s * (60 / (currClip.ssPart.metro.bpm * currClip.ssPart.metro.tatums));
+                        var rect_x = this.p5.map(startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
+    
+                        this.p5.rect(rect_x, rect_y, 2, rect_height);
+                    }
+
+
+
+                }
+            }
         }
     }
 
@@ -1540,7 +1588,8 @@ class SSClip
     {
         this.transportLoopLength = transportLoopLength;
         this.clipLength = this.p5.map(this.duration, 0, this.transportLoopLength, 0, this.trackWidth);
-        console.log(`Midi Clip Length: ${this.clipLength}`);
+        console.log(`SS Clip Length: ${this.clipLength}`);
+        console.log(`SS Clip duration: ${this.duration}`);
 
     }
 
@@ -1577,7 +1626,7 @@ const whiteNotes = document.querySelectorAll('.key.white');
 const blackNotes = document.querySelectorAll('.key.black');
 
 
-let edit  = new Edit(600, 100);
+let edit  = new Edit(2000, 100);
 let keyboard = new OnScreenKeyboard();
 let stepSequencer = new StepSequencer(4);
 let ssModal = new SSModal('stepModal');
