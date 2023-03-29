@@ -6,6 +6,7 @@ COPY . .
 
 RUN npm install
 
+ENV XCLOUD_IP=http://xcloud:80/svn
 
 
 EXPOSE 8081
