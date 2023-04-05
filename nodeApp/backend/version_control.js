@@ -1,5 +1,6 @@
 const svn = require('node-svn-ultimate');
 const {config} = require("dotenv") ;
+const fs = require('fs');
 
 
 class SVNClient {
@@ -25,6 +26,12 @@ class SVNClient {
 
     checkout_user(user, url)
     {
+        var workingDirectory = `./xcloud/users/${user}`;
+        var userRepo = this.REPO_URL + `/xcloud/users/`
+        fs.mkdirSync(workingDirectory);
+        svn.commands.checkout(this.REPO_URL, workingDirectory,function(err){
+            console.log("Checkout complete");
+        } );
         //I dont know if each user will have its own url yet. Will test that out.
     }
 }

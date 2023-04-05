@@ -38,9 +38,14 @@ class XC_Database
     {
         this.connectToCluster(this.uri());
         this.#svnData = this.#mongoClient.db('svn_data');
-        this.#users = this.#mongoClient.db('client');
+        this.#users = this.#mongoClient.db('users');
         this.#assets = this.#mongoClient.db('assets');
         this.#projectFiles = this.#mongoClient.db('project_files')
+    }
+
+    register_svn_user(url, user)
+    {
+        
     }
 
 
