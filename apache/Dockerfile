@@ -3,7 +3,7 @@ FROM ubuntu:18.04
 RUN apt update &&\
     apt-get install -y apache2 &&\
     apt-get install -y apache2-utils &&\
-    apt-get install subversion libapache2-mod-svn -y &&\
+    apt-get install subversion libapache2-mod-svn libsvn-dev subversion-tools -y &&\
     apt-get install -y libapache2-mod-perl2 &&\
 
     #apk add --no-cache apache2 apache2-utils apache2-webdav mod_dav_svn && \
@@ -22,13 +22,16 @@ RUN apt update &&\
     htpasswd -b /etc/subversion/passwd user user
 
 
+RUN a2enmod dav &&\
+    a2enmod dav_svn
 
-ADD dav_svn.conf /etc/apache2/conf.d/dav_svn.conf
+ADD dav_svn.conf /etc/apache2/mods-enabled/dav_svn.conf
 ADD cgi-enabled.conf /etc/apache2/conf-available/cgi-enabled.conf
 ADD new_repo.pl  /home/httpd/perl/new_repo.pl
 ADD new_repo.pl  /var/www/perl/new_repo.pl
 ADD create_repo.sh /home/httpd/perl/create_repo.sh
 ADD create_repo.sh /var/www/perl/create_repo.sh
+
 
 RUN chmod a+x /home/httpd/perl/create_repo.sh &&\
     chmod a+x /home/httpd/perl/new_repo.pl &&\
@@ -45,7 +48,14 @@ ENV SVN_PORT=1024
 
 EXPOSE 80 443 3690 1024
 
-CMD ["apache2ctl", "-D", "FOREGROUND"]
+
+WORKDIR /home/
+COPY run.sh .
+RUN chmod a+x /home/run.sh
+
+
+CMD ["/bin/bash","-c","./run.sh"]
+#["apache2ctl", "-D", "FOREGROUND"]
  #["/usr/sbin/httpd", "-D", "FOREGROUND"]
 
 
