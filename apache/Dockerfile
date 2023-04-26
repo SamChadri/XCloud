@@ -1,6 +1,13 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
+ARG DEBIAN_FRONTEND=noninteractive
+#RUN echo "deb http://ftp.debian.org/debian buster-backports main" >> /etc/apt/sources.list &&\
+#   echo "deb-src http://ftp.debian.org/debian buster-backports main" >> /etc/apt/sources.list
+
+ENV USER=user
+
 
 RUN apt update &&\
+    apt-get upgrade &&\
     apt-get install -y apache2 &&\
     apt-get install -y apache2-utils &&\
     apt-get install subversion libapache2-mod-svn libsvn-dev subversion-tools -y &&\
@@ -20,8 +27,12 @@ RUN apt update &&\
     touch /etc/subversion/passwd &&\
 
     htpasswd -b /etc/subversion/passwd user user
+RUN chmod a+rwx /root &&\
+    chmod a+rwx /root/.profile &&\
+    chmod a+rwx /root/.bashrc
 
-
+RUN touch /etc/subversion/passwd_test &&\
+    htpasswd -b /etc/subversion/passwd_test user password
 RUN a2enmod dav &&\
     a2enmod dav_svn
 

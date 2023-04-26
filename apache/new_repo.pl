@@ -31,11 +31,11 @@ open STDERR, '>>', '/home/httpd/perl/log.txt'
 
 my $command = `/bin/bash /home/httpd/perl/create_repo.sh $username $passwd`;
 #system("/");
-
+my $envtest = $ENV{'THE_REQUEST'};
 #open(my $fh, '>', ' /proc/1/fd/1');
 #print $fh $command;
 #close $fh;
-
+print("ENV VARIABLE: $envtest \n");
 
 print("Bash script result : $command \n");
 
