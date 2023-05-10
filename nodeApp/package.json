@@ -18,8 +18,12 @@
   },
   "homepage": "https://github.com/SamChadri/XCloud#readme",
   "dependencies": {
+    "axios": "^1.4.0",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "mongodb": "^5.1.0",
+    "node-fetch": "^3.3.1",
     "node-svn-ultimate": "^1.2.1"
   }
 }

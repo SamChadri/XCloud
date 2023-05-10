@@ -1736,7 +1736,7 @@ var trackP5 = function(track) {
     recordButton.onclick = recordButtonClicked;
     track.preload = function(){
         edit.setP5(track);
-        edit.trackList[0].loadClip('assets/DrakeOverdrive.wav');
+        edit.trackList[0].loadClip('../assets/DrakeOverdrive.wav');
         
     }
 
@@ -1916,6 +1916,43 @@ ssButton.onclick = () =>  {
 
 var editP = new p5(trackP5, 'track1');
 var tempTracks = edit.trackList;
+
+var newRepoButton = document.getElementById('repoButton');
+const repoModal = new bootstrap.Modal('#repoModal', {
+    keyboard: false
+});
+
+newRepoButton.onclick = () =>{
+    repoModal.show();
+    const url = 'http://127.0.0.1:8000/create_repo'
+
+    var createRepoButton = document.getElementById('createRepoButton');
+
+    createRepoButton.onclick = () =>{
+        var username = document.getElementById('repoUser').value;
+        var password = document.getElementById('repoPassword').value;
+        var data = {
+            username: username,
+            passwd: password
+        };
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: data,
+            success: function(result) {
+                console.log(`Finished creating repo successfully with`);
+            },
+            error: function(error){
+                console.log(`Error occured: ${error}`)
+            }
+          });
+    }
+
+
+
+    
+
+}
 
 $(function() {
     $(".dial").knob({
