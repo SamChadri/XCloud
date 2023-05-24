@@ -207,13 +207,13 @@ class StepSequencer
     currState = StepSequencer.playbackState.READY;
     
 
-    channels = {};
+    channels = [];
     p5 = null;
     sounds = [
-                'assets/Bass-Drum.mp3',
-                'assets/Snare-Drum.mp3',
-                'assets/HH-Closed.mp3',
-                'assets/Acoustic-Shaker.mp3',
+                '../assets/Bass-Drum.mp3',
+                '../assets/Snare-Drum.mp3',
+                '../assets/HH-Closed.mp3',
+                '../assets/Acoustic-Shaker.mp3',
 
 
     ];
@@ -244,6 +244,7 @@ class StepSequencer
         for(let i = 0; i < this.numChannels; i++)
         {
             var stepSequencer = this;
+            this.channels[i]['path'] = this.sounds[i];
             this.channels[i]['sound'] = this.p5.loadSound(this.sounds[i], () => {
                 stepSequencer.channels[i]['phrase'] = new p5.Phrase(`channel-${i}`,(time) =>{
                     stepSequencer.channels[i]['sound'].play(time);
@@ -301,6 +302,7 @@ class StepSequencer
 
         for(let i = 0; i < this.numChannels; i++)
         {
+            var stepSequencer = this;
             var copyMatrix = stepSequencer.channels[i]['matrix'].map(a => {return a});
             var copyPhrase = new p5.Phrase(`channel-${i}`,(time) =>{
                 stepSequencer.channels[i]['sound'].play(time);
@@ -315,7 +317,7 @@ class StepSequencer
 
         console.log(`Step Sequence Duration: ${this.duration}`);
 
-        edit.confirmStepSequence(transferPart, this.duration);
+        edit.confirmStepSequence(transferPart, this.duration, stepSequencer.channels);
     }
 
     detectCell()
@@ -633,6 +635,22 @@ class Edit {
         }
     }
 
+    saveEdit()
+    {
+        var editData = {};
+        editData.width = this.width;
+        editData.height = this.height;
+
+        editData.numTracks = this.numTracks;
+        editData.transportLoopLength = this.transportLoopLength;
+        editData.trackList = [];
+        for(var i = 0; i < this.numTracks; i++){
+            var trackData = this.trackList[i].saveTrack();
+            editData.trackList.push(trackData)
+        }
+        this.p5.save(editData, 'latest_edit.json');
+    }
+
     playTransport()
     {
         Tone.Transport.start();
@@ -711,10 +729,11 @@ class Edit {
         //Create the rect and add notes that correspond using the map function.
     }
 
-    confirmStepSequence(ssPart, duration)
+    confirmStepSequence(ssPart, duration, channels)
     {
         var newTrack = this.createTrack();
-        newTrack.loadSSClip(ssPart, duration);
+        console.log(channels);
+        newTrack.loadSSClip(ssPart, duration,channels);
     }
 
     createTrack(width, height)
@@ -862,6 +881,44 @@ class Track
         this.name = `Track ${this.trackNum + 1}`;
     }
 
+    saveTrack(){
+        var track = {};
+        track.trackNum = this.trackNum;
+        track.trackWidth = this.trackWidth;
+        track.trackHeight = this.trackHeight;
+        track.transportLoopLength = this.transportLoopLength;
+        track.enId = this.enId;
+        track.menId = this.menId;
+        track.name = this.name;
+        track.recordings = []
+        for(var i = 0; i < this.recordings.length; i++){
+            track.recordings[i] = this.recordings[i].url;
+        }
+        track.clips = [];
+        track.numClips = this.numClips;
+
+        track.midiClips = [];
+        track.numMidiClips = this.numMidiClips;
+
+        track.ssClips = [];
+        track.numSSClips = this.numSSClips;
+        
+        for(var i = 0; i < this.clips.length; i++){
+            var clip = this.clips[i].saveClip();
+            track.clips.push(clip);
+        }
+        for(var i = 0; i < this.midiClips.length; i++){
+            var midiClip  = this.midiClips[i].saveClip();
+            track.midiClips.push(midiClip);
+        }
+        for(var i = 0; i < this.ssClips.length; i++){
+            var ssClip = this.ssClips[i].saveClip();
+            track.ssClips.push(ssClip);
+        }
+
+        return track;
+    }
+
     enableRecording()
     {
         this.mic = new p5.AudioIn();
@@ -923,9 +980,11 @@ class Track
                 console.log(this.currSoundFile);
                 console.log("Timed Recording Finished");
                 console.log(this.currSoundFile.isLoaded());
-                this.p5.saveSound(this.currSoundFile, `testRecording.wav`); //Add Timestamp
+                this.p5.saveSound(this.currSoundFile, 'testRecording.wav'); //Add Timestamp
                 this.recordings.push(this.currSoundFile);
-                console.log(`Loading file from path: ${this.currSoundFile.url}`);
+                this.currSoundFile.setPath('../assets/testRecording.wav')
+                console.log(`Loading sound file : `);
+                console.log(this.currSoundFile);
                 this.loadRecordingClip(this.currSoundFile);
                 this.currSoundFile = new p5.SoundFile();
                 console.log(`Stopped Recording Track ${this.trackNum}`);
@@ -995,7 +1054,8 @@ class Track
         this.p5.stroke("pink");
         this.p5.fill("pink");
         var rec_dif_pos = this.p5.map(rec_dif, 0, transportLoopLength, 0, this.p5.width);
-        this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
+        var clipY = (this.trackNum * 100)
+        this.p5.rect(this.init_rec_time, this.trackY, rec_dif_pos, 100);
         this.analyzeMidiRecording(this.init_rec_time, this.trackY, rec_dif_pos, 100);
     }
 
@@ -1014,8 +1074,8 @@ class Track
         this.p5.stroke("red");
         this.p5.fill("red");
         var rec_dif_pos = this.p5.map(rec_dif, 0, transportLoopLength, 0, this.p5.width);
-        this.p5.rect(this.init_rec_time, 100, rec_dif_pos, 100);
-        this.analyzeRecording(this.init_rec_time, 100, rec_dif_pos, 100);
+        this.p5.rect(this.init_rec_time, this.trackY, rec_dif_pos, 100);
+        this.analyzeRecording(this.init_rec_time, this.trackY, rec_dif_pos, 100);
 
         
     }
@@ -1042,7 +1102,7 @@ class Track
         this.p5.fill("black");
         for(let i = 0; i < this.curr_midi_notes.length; i++)
         {
-            console.log("Drawing Notes");
+            //console.log("Drawing Notes");
             var midiNote = this.curr_midi_notes[i];
             var rect_height = clipHeight/79;
             var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(clipY+clipHeight), clipY);
@@ -1050,7 +1110,7 @@ class Track
             var rect_x = this.p5.map(midiNote.startTime, 0, Tone.Transport.seconds, clipX, (clipX + clipWidth));
             //console.log(rect_x);
             //console.log(rect_y);
-            console.log(rect_width);
+            //console.log(rect_width);
             //console.log(rect_height);
             this.p5.rect(rect_x, rect_y, rect_width, rect_height);
 
@@ -1073,12 +1133,12 @@ class Track
         this.p5 = p5Object;
     }
 
-    loadSSClip(ssPart, duration)
+    loadSSClip(ssPart, duration, channels)
     {
         var newClip = new SSClip(this.numSSClips, ssPart, this.trackWidth);
         var lastLength = this.getLastClip();
         newClip.clipX = lastLength;
-
+        newClip.channels = channels;
         newClip.clipY = this.trackNum * 100;
         newClip.p5 = this.p5;
         newClip.duration = duration;
@@ -1151,26 +1211,24 @@ class Track
 
     loadRecordingClip(soundFile)
     {
-        var toneClip = new Tone.Player(soundFile.buffer, () => {
-            console.log(toneClip);
+        var toneClip = new Tone.Player(soundFile.buffer).toMaster().sync().start(0);
+        console.log("Loaded Tone New Tone Clip...");
+        console.log(toneClip);
 
-            var clipIndex = this.numClips;
-            var newClip = new Clip(this.numClips, soundFile, toneClip, this.trackWidth);
-            if(this.clips.length != 0)
-            {
-                newClip.clipX = this.clips[clipIndex].clipLength;
-            }else{
-                newClip.clipX = 0;
-            }
-            newClip.clipY = this.trackNum * 100;
-            newClip.p5 = this.p5;
-            newClip.calcClipLength(this.transportLoopLength);
-            console.log(newClip);
-            this.clips.push(newClip);
-            this.numClips += 1;
-
-
-        }).toMaster().sync().start(0);
+        var clipIndex = this.numClips;
+        var newClip = new Clip(this.numClips, soundFile, toneClip, this.trackWidth);
+        if(this.clips.length != 0)
+        {
+            newClip.clipX = this.clips[clipIndex].clipLength;
+        }else{
+            newClip.clipX = 0;
+        }
+        newClip.clipY = this.trackNum * 100;
+        newClip.p5 = this.p5;
+        newClip.calcClipLength(this.transportLoopLength);
+        console.log(newClip);
+        this.clips.push(newClip);
+        this.numClips += 1;
     }
 
     loadClip(url)
@@ -1311,7 +1369,8 @@ class Track
 
             for(let i = 0; i < currClip.midiNotes.length; i++)
             {
-                console.log("Drawing Notess");
+                //console.log("Drawing Notess");
+                //CHANGE START TIME
                 var midiNote = currClip.midiNotes[i];
                 var rect_height = currClip.clipHeight/79;
                 var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(currClip.clipY+currClip.clipHeight), currClip.clipY);
@@ -1399,6 +1458,7 @@ class Track
     {
         if(this.currLockedClip != null && this.currLockedClip.lockClip){
             this.currLockedClip.lockClip = false;
+            console.log(this.currLockedClip.tonePlayer);
             this.currLockedClip.tonePlayer.unsync();
             this.currLockedClip.tonePlayer.toMaster().sync().start(this.currLockedClip.clipStartTime);
             //Tone.Transport.clear(toneTrackId1);
@@ -1448,6 +1508,21 @@ class Clip
         this.p5Player = p5Player;
         this.tonePlayer = tonePlayer;
         this.trackWidth = trackWidth;
+    }
+    saveClip()
+    {
+        var clip = {};
+        clip.trackWidth = this.trackWidth;
+        clip.clipStartTime = this.clipStartTime;
+        clip.clipX = this.clipX;
+        clip.clipY = this.clipY;
+        clip.clipLength = this.clipLength;
+        clip.clipHeight = this.clipHeight;
+        clip.index = this.index;
+
+        clip.duration = this.p5Player.duration();
+        return clip;
+        
     }
     
 
@@ -1503,6 +1578,35 @@ class MidiClip
         this.trackWidth = trackWidth;
         this.midiNotes = midiNotes;
         
+    }
+
+    saveClip()
+    {
+        var clip = {};
+        clip.trackWidth = this.trackWidth;
+        clip.clipStartTime = this.clipStartTime;
+        clip.clipX = this.clipX;
+        clip.clipY = this.clipY;
+        clip.clipLength = this.clipLength;
+        clip.clipHeight = this.clipHeight;
+        clip.index = this.index;
+
+        clip.duration = this.duration;
+        clip.midiNotes = [];
+
+        for(var i = 0; i < this.midiNotes.length; i++)
+        {
+            var midiNote = {};
+            midiNote.note = this.midiNotes[i].note;
+            midiNote.midiNum = this.midiNotes[i].midiNum;
+            midiNote.duration = this.midiNotes[i].duration;
+            midiNote.startTime = this.midiNotes[i].startTime;
+            midiNote.message = this.midiNotes[i].message;
+
+            clip.midiNotes.push(midiNote);
+        }
+
+        return clip;
     }
 
     calcClipLength(transportLoopLength)
@@ -1562,6 +1666,8 @@ class SSClip
     index = 0;
     transportLoopLength = 240;
 
+    channels = [];
+
     hover = false;
     lockClip = false;
 
@@ -1578,6 +1684,34 @@ class SSClip
         this.index = index;
         this.ssPart = ssPart;
         this.trackWidth = trackWidth;
+    }
+
+    saveClip()
+    {
+        var clip = {};
+        clip.trackWidth = this.trackWidth;
+        clip.clipStartTime = this.clipStartTime;
+        clip.clipX = this.clipX;
+        clip.clipY = this.clipY;
+        clip.clipLength = this.clipLength;
+        clip.clipHeight = this.clipHeight;
+        clip.index = this.index;
+
+        clip.duration = this.duration;
+
+        clip.ssPart = [];
+        for(var i = 0; i < this.channels.length; i++)
+        {
+            clip.ssPart[i] = {};
+            clip.ssPart[i]['matrix'] = []
+            for(var k = 0; k < this.channels[i]['matrix'].length; k++)
+            {   
+                clip.ssPart[i]['matrix'][k] = this.channels[i]['matrix'][k]; 
+            }
+            clip.ssPart[i]['path'] = this.channels[i]['path'];
+
+        }
+        return clip;
     }
     setStartTime()
     {
@@ -1914,8 +2048,16 @@ ssButton.onclick = () =>  {
 //var ssP5 = new p5(stepSequenceP5, "stepSeqencer");
 
 
-var editP = new p5(trackP5, 'track1');
+var editP = new p5(trackP5, 'edit');
+var editDiv = document.getElementById('edit');
+editDiv.appendChild(document.createElement('p'));
 var tempTracks = edit.trackList;
+
+var saveButton = document.getElementById('saveButton');
+saveButton.onclick = () => {
+    edit.saveEdit();
+    console.log("Save Button Clicked");
+}
 
 var newRepoButton = document.getElementById('repoButton');
 const repoModal = new bootstrap.Modal('#repoModal', {

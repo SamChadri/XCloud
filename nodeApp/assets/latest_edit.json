@@ -1,0 +1,248 @@
+{
+  "width": 2000,
+  "height": 400,
+  "numTracks": 4,
+  "transportLoopLength": 240,
+  "trackList": [
+    {
+      "trackNum": 0,
+      "trackWidth": 2000,
+      "trackHeight": 100,
+      "transportLoopLength": 240,
+      "enId": "rec-enable-0",
+      "menId": "midi-enable-0",
+      "name": "Track 1",
+      "recordings": [],
+      "clips": [
+        {
+          "trackWidth": 2000,
+          "clipStartTime": 0,
+          "clipX": 0,
+          "clipY": 0,
+          "clipLength": 1688.6711805555556,
+          "clipHeight": 100,
+          "index": 0,
+          "duration": 202.64054166666668
+        }
+      ],
+      "numClips": 1,
+      "midiClips": [],
+      "numMidiClips": 0,
+      "ssClips": [],
+      "numSSClips": 0
+    },
+    {
+      "trackNum": 1,
+      "trackWidth": 2000,
+      "trackHeight": 100,
+      "transportLoopLength": 240,
+      "enId": "rec-enable-1",
+      "menId": "midi-enable-1",
+      "name": "Track 2",
+      "recordings": [
+        "../assets/testRecording.wav"
+      ],
+      "clips": [
+        {
+          "trackWidth": 2000,
+          "clipStartTime": 0,
+          "clipX": 0,
+          "clipY": 100,
+          "clipLength": 36.444444444444436,
+          "clipHeight": 100,
+          "index": 0,
+          "duration": 3.648
+        }
+      ],
+      "numClips": 1,
+      "midiClips": [],
+      "numMidiClips": 0,
+      "ssClips": [],
+      "numSSClips": 0
+    },
+    {
+      "trackNum": 2,
+      "trackWidth": 2000,
+      "trackHeight": 200,
+      "transportLoopLength": 240,
+      "enId": "rec-enable-2",
+      "menId": "midi-enable-2",
+      "name": "Track 3",
+      "recordings": [],
+      "clips": [],
+      "numClips": 0,
+      "midiClips": [
+        {
+          "trackWidth": 2000,
+          "clipStartTime": 0,
+          "clipX": 0,
+          "clipY": 200,
+          "clipLength": 94.71111111111111,
+          "clipHeight": 100,
+          "index": 0,
+          "duration": 11.365333333333332,
+          "midiNotes": [
+            {
+              "note": "C",
+              "midiNum": 72,
+              "duration": 0,
+              "startTime": 2.554666666666666,
+              "message": ""
+            },
+            {
+              "note": "E",
+              "midiNum": 76,
+              "duration": 0.1,
+              "startTime": 3.642666666666667,
+              "message": ""
+            },
+            {
+              "note": "D",
+              "midiNum": 74,
+              "duration": 0,
+              "startTime": 4.687999999999999,
+              "message": ""
+            },
+            {
+              "note": "F",
+              "midiNum": 77,
+              "duration": 0.1,
+              "startTime": 5.765333333333334,
+              "message": ""
+            },
+            {
+              "note": "E",
+              "midiNum": 76,
+              "duration": 0,
+              "startTime": 6.853333333333332,
+              "message": ""
+            },
+            {
+              "note": "D",
+              "midiNum": 74,
+              "duration": 0,
+              "startTime": 8.847999999999999,
+              "message": ""
+            }
+          ]
+        }
+      ],
+      "numMidiClips": 1,
+      "ssClips": [],
+      "numSSClips": 0
+    },
+    {
+      "trackNum": 3,
+      "trackWidth": 2000,
+      "trackHeight": 300,
+      "transportLoopLength": 240,
+      "enId": "rec-enable-3",
+      "menId": "midi-enable-3",
+      "name": "Track 4",
+      "recordings": [],
+      "clips": [],
+      "numClips": 0,
+      "midiClips": [],
+      "numMidiClips": 0,
+      "ssClips": [
+        {
+          "trackWidth": 2000,
+          "clipStartTime": 0,
+          "clipX": 0,
+          "clipY": 300,
+          "clipLength": 33.333333333333336,
+          "clipHeight": 100,
+          "index": 0,
+          "duration": 4,
+          "ssPart": [
+            {
+              "matrix": [
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                1,
+                0,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0
+              ],
+              "path": "../assets/Bass-Drum.mp3"
+            },
+            {
+              "matrix": [
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                1,
+                1,
+                0
+              ],
+              "path": "../assets/Snare-Drum.mp3"
+            },
+            {
+              "matrix": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1,
+                0,
+                1,
+                0
+              ],
+              "path": "../assets/HH-Closed.mp3"
+            },
+            {
+              "matrix": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "path": "../assets/Acoustic-Shaker.mp3"
+            }
+          ]
+        }
+      ],
+      "numSSClips": 1
+    }
+  ]
+}
