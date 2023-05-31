@@ -63,7 +63,9 @@
     box-shadow: 0 0 1rem #028ae9;
 }
 
-
+input[type="file"] {
+    display: none;
+}
 
 
 .edit-track{

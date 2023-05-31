@@ -2,7 +2,7 @@
 //import {ReactDOM} from 'react-dom'
 import Vue from 'vue'
 //import Vue from 'https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.esm.browser.js'
-
+//import P5 from 'p5';
 
 
 let whiteNoise = new p5.Noise();
@@ -633,6 +633,7 @@ class Edit {
         {
             this.trackList[i].setP5(p5Object);
         }
+
     }
 
     saveEdit()
@@ -648,7 +649,54 @@ class Edit {
             var trackData = this.trackList[i].saveTrack();
             editData.trackList.push(trackData)
         }
+        //TODO: SEND UP TO SERVER LATER
         this.p5.save(editData, 'latest_edit.json');
+    }
+
+    loadEdit(file)
+    {
+        const fr = new FileReader();
+        var editData = {};
+        var edit = this;
+        fr.onload = function(e){
+            console.log("File Loaded...");
+            console.log("Contents: ")
+            var contents = e.target.result;
+            editData = JSON.parse(contents);
+            console.log(editData);
+            edit.parseData(editData);
+        }
+        fr.readAsText(file);
+    }
+
+    parseData(editData)
+    {
+        for(var i = 0; i < this.trackList.length; i++){
+            this.trackList.pop();
+        }
+        Tone.Transport.cancel(0);
+        for(var i = 0; i < editData.trackList.length; i++){
+            var track = Track.loadData(editData.trackList[i], this.p5);
+            console.log("Pushing new Track");
+            console.log(track);
+            this.trackList.push(track);
+        }
+        
+        this.numTracks = editData.numTracks;
+
+        this.width = editData.width;
+        this.height = editData.height;
+
+        console.log(this.trackList);
+        console.log(this.numTracks);
+        this.p5.resizeCanvas(edit.width, edit.height);
+
+
+        this.transportLoopLength = editData.transportLoopLength;
+        
+
+
+
     }
 
     playTransport()
@@ -884,15 +932,18 @@ class Track
     saveTrack(){
         var track = {};
         track.trackNum = this.trackNum;
+        track.trackX = this.trackX;
+        track.trackY = this.trackY;
         track.trackWidth = this.trackWidth;
         track.trackHeight = this.trackHeight;
         track.transportLoopLength = this.transportLoopLength;
         track.enId = this.enId;
         track.menId = this.menId;
         track.name = this.name;
+        track.volume = this.volume;
         track.recordings = []
         for(var i = 0; i < this.recordings.length; i++){
-            track.recordings[i] = this.recordings[i].url;
+            track.recordings[i] = this.recordings[i];
         }
         track.clips = [];
         track.numClips = this.numClips;
@@ -917,6 +968,40 @@ class Track
         }
 
         return track;
+    }
+
+    static loadData(trackData, p5Object)
+    {
+        var track = {};
+        var newTrack = new Track(trackData.trackNum, trackData.trackWidth, trackData.trackHeight, trackData.transportLoopLength);
+
+        newTrack.trackX = trackData.trackX;
+        newTrack.trackY = trackData.trackY;
+        newTrack.enId = trackData.enId;
+        newTrack.name = trackData.name;
+        newTrack.p5 = p5Object;
+        for(var i = 0; i < trackData.recordings.length; i++){
+            newTrack.recordings.push(trackData.recordings[i]);
+        }
+        
+        for(var i = 0; i < trackData.clips.length; i++){
+            var clip = Clip.loadData(trackData.clips[i], p5Object, newTrack.clips, newTrack.numClips);
+
+        }
+
+        for(var i = 0; i < trackData.midiClips.length; i++){
+            var clip = MidiClip.loadData(trackData.midiClips[i], p5Object);
+            newTrack.midiClips.push(clip);
+        }
+
+        newTrack.numMidiClips = trackData.numMidiClips;
+
+        for(var i = 0; i < trackData.ssClips.length; i++){
+            var clip = SSClip.loadData(trackData.ssClips[i], p5Object, newTrack.ssClips, newTrack.numSSClips);
+        }
+
+        return newTrack;
+
     }
 
     enableRecording()
@@ -981,7 +1066,7 @@ class Track
                 console.log("Timed Recording Finished");
                 console.log(this.currSoundFile.isLoaded());
                 this.p5.saveSound(this.currSoundFile, 'testRecording.wav'); //Add Timestamp
-                this.recordings.push(this.currSoundFile);
+                this.recordings.push(this.currSoundFile.url);
                 this.currSoundFile.setPath('../assets/testRecording.wav')
                 console.log(`Loading sound file : `);
                 console.log(this.currSoundFile);
@@ -1367,6 +1452,9 @@ class Track
             this.p5.rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
             this.p5.stroke("pink");
 
+            //console.log("LOGGING MIDI CLIP");
+            //console.log(currClip);
+
             for(let i = 0; i < currClip.midiNotes.length; i++)
             {
                 //console.log("Drawing Notess");
@@ -1396,7 +1484,8 @@ class Track
             this.p5.rect(currClip.clipX, currClip.clipY, currClip.clipLength, currClip.clipHeight);
             //console.log(currClip.ssPart.phrases.length);
             this.p5.stroke("pink");
-
+            //console.log("Logging SSCLIP: ");
+            //console.log(currClip);
             var numChannels = currClip.ssPart.phrases.length;
             var rect_height = currClip.clipHeight/numChannels;
             for(let i = 0; i < numChannels; i++)
@@ -1406,6 +1495,7 @@ class Track
                     //console.log("Inside Sequence")
                     if(currClip.ssPart.phrases[i].sequence[s] == 1)
                     {
+                        //console.log("BEAT FOUND");
                         var rect_y = this.p5.map(i, 0, numChannels,(currClip.clipY+currClip.clipHeight), currClip.clipY);
                         var rect_width = this.p5.map(1,0, currClip.duration, 0, currClip.clipLength);
                         var startTime = s * (60 / (currClip.ssPart.metro.bpm * currClip.ssPart.metro.tatums));
@@ -1519,10 +1609,41 @@ class Clip
         clip.clipLength = this.clipLength;
         clip.clipHeight = this.clipHeight;
         clip.index = this.index;
+        clip.url = this.p5Player.url;
+        clip.transportLoopLength = this.transportLoopLength;
 
         clip.duration = this.p5Player.duration();
         return clip;
         
+    }
+    static loadData(clipData, p5Object, clips, numClips)
+    {
+        var p5Clip = p5Object.loadSound(clipData.url, () => {
+            
+            var toneClip = new Tone.Player(clipData.url,() =>{
+                var clipIndex = this.numClips;
+                //this.toneClips.push(toneClip);
+                console.log("Loaded p5 Clip from data");
+                console.log(p5Clip);
+                var newClip = new Clip(clipData.index, p5Clip, toneClip, clipData.trackWidth);
+                
+
+                newClip.clipX = clipData.clipX;
+                newClip.clipY = clipData.clipY;
+                newClip.clipLength = clipData.clipLength;
+                newClip.clipHeight = clipData.clipHeight;
+
+                newClip.clipStartTime = clipData.clipStartTime;
+                newClip.transportLoopLength = clipData.transportLoopLength;
+
+                newClip.p5 = p5;
+                console.log(newClip);
+
+                clips.push(newClip);
+                numClips += 1;
+            }).toMaster().sync().start(clipData.clipStartTime);
+        });
+
     }
     
 
@@ -1607,6 +1728,43 @@ class MidiClip
         }
 
         return clip;
+    }
+
+    static loadData(clipData, p5Object)
+    {
+        var newMidiNotes = []
+        for(var i = 0; i < clipData.midiNotes.length; i++)
+        {
+            var midiNote = new MidiMessage(clipData.midiNotes[i].note, clipData.midiNotes[i].midiNum);
+            midiNote.duration = clipData.midiNotes[i].duration;
+            midiNote.startTime = clipData.midiNotes[i].startTime;
+            midiNote.message = clipData.midiNotes[i].message;
+            newMidiNotes.push(midiNote);
+        }
+        console.log("LOGGING LOADED MIDI NOTES");
+        console.log(newMidiNotes);
+            
+        //this.toneClips.push(toneClip);
+        var newClip = new MidiClip(clipData.index,clipData.trackWidth, newMidiNotes);
+        
+
+        newClip.clipX = clipData.clipX;
+        newClip.clipY = clipData.clipY;
+        newClip.clipLength = clipData.clipLength;
+        newClip.clipHeight = clipData.clipHeight;
+
+        newClip.duration = clipData.duration;
+
+        newClip.p5 = p5Object;
+
+        newClip.clipStartTime = clipData.clipStartTime;
+        newClip.transportLoopLength = clipData.transportLoopLength;
+
+
+
+        console.log(newClip);
+
+        return newClip
     }
 
     calcClipLength(transportLoopLength)
@@ -1698,7 +1856,8 @@ class SSClip
         clip.index = this.index;
 
         clip.duration = this.duration;
-
+        clip.bpm = this.ssPart.metro.bpm;
+        clip.tatums = this.ssPart.metro.tatums
         clip.ssPart = [];
         for(var i = 0; i < this.channels.length; i++)
         {
@@ -1713,6 +1872,63 @@ class SSClip
         }
         return clip;
     }
+
+    static loadData(clipData, p5Object, ssClips, numSSClips)
+    {
+        var channels = [];
+        console.log(clipData.ssPart[0]['matrix']);
+        var newPart = new p5.Part();
+        var count = 0;
+        for(let i = 0; i < clipData.ssPart.length; i++)
+        {
+            channels[i] = {};
+            channels[i]['path'] = clipData.ssPart[i]['path'];
+            channels[i]['matrix'] = clipData.ssPart[i]['matrix'];
+            channels[i]['sound'] = p5Object.loadSound(clipData.ssPart[i]['path'], () => {
+                //console.log(channels[count]);
+                channels[i]['phrase'] = new p5.Phrase(`channel-${i}`,(time) =>{
+                    channels[i]['sound'].play(time);
+                }, channels[i]['matrix']);
+
+                newPart.addPhrase(channels[i]['phrase']);
+                if(i == clipData.ssPart.length - 1){
+                    var newClip = new SSClip(clipData.index, newPart, clipData.trackWidth);
+
+                    newClip.clipX = clipData.clipX;
+                    newClip.clipY = clipData.clipY;
+                    newClip.clipLength = clipData.clipLength;
+                    newClip.clipHeight = clipData.clipHeight;
+
+                    newClip.duration = clipData.duration;
+            
+                    newClip.clipStartTime = clipData.clipStartTime;
+                    newClip.transportLoopLength = clipData.transportLoopLength;
+                    newClip.p5 = p5Object;
+                    newClip.setStartTime();
+                    newClip.scheduleSequence();
+
+                    console.log(count)
+
+                    console.log("LOGGING SSCLIP SEQUENCE DATA");
+                    console.log(newClip.ssPart.phrases[0].sequence.length);
+
+                    newClip.ssPart.metro.tatums = clipData.tatums
+                    newClip.ssPart.setBPM(clipData.bpm);
+
+                    newClip.channels = channels;
+
+                    ssClips.push(newClip);
+                    numSSClips += 1;
+                }
+                count++;
+
+            });
+        }
+
+
+
+    }
+
     setStartTime()
     {
         this.clipStartTime = this.p5.map(this.clipX, 0, this.trackWidth, 0, this.transportLoopLength);
@@ -2038,6 +2254,24 @@ ssButton.onclick = () =>  {
     console.log('SS Button Clicked');
     ssModal.showModal();
     ssModal.createP5Instance("stepSequencer", stepSequenceP5);
+}
+
+
+var uploadButton = document.getElementById('uploadButton');
+var uploadInput = document.getElementById('file-upload');
+
+uploadButton.onclick = (e) => {
+    uploadInput.onchange = (e) =>{
+        console.log("Uplad Button clicked");
+        var file = e.target.files[0];
+        if(!file){
+            alert("Not a valid file");
+        }
+        edit.loadEdit(file);
+    }
+
+
+    
 }
 
 

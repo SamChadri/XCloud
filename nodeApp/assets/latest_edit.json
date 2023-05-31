@@ -6,22 +6,27 @@
   "trackList": [
     {
       "trackNum": 0,
+      "trackX": 0,
+      "trackY": 0,
       "trackWidth": 2000,
       "trackHeight": 100,
       "transportLoopLength": 240,
       "enId": "rec-enable-0",
       "menId": "midi-enable-0",
       "name": "Track 1",
+      "volume": 50,
       "recordings": [],
       "clips": [
         {
           "trackWidth": 2000,
-          "clipStartTime": 0,
-          "clipX": 0,
+          "clipStartTime": 0.12,
+          "clipX": 1,
           "clipY": 0,
           "clipLength": 1688.6711805555556,
           "clipHeight": 100,
           "index": 0,
+          "url": "../assets/DrakeOverdrive.wav",
+          "transportLoopLength": 240,
           "duration": 202.64054166666668
         }
       ],
@@ -33,14 +38,17 @@
     },
     {
       "trackNum": 1,
+      "trackX": 0,
+      "trackY": 100,
       "trackWidth": 2000,
       "trackHeight": 100,
       "transportLoopLength": 240,
       "enId": "rec-enable-1",
       "menId": "midi-enable-1",
       "name": "Track 2",
+      "volume": 50,
       "recordings": [
-        "../assets/testRecording.wav"
+        null
       ],
       "clips": [
         {
@@ -48,10 +56,12 @@
           "clipStartTime": 0,
           "clipX": 0,
           "clipY": 100,
-          "clipLength": 36.444444444444436,
+          "clipLength": 46.93333333333334,
           "clipHeight": 100,
           "index": 0,
-          "duration": 3.648
+          "url": "../assets/testRecording.wav",
+          "transportLoopLength": 240,
+          "duration": 6.570666666666667
         }
       ],
       "numClips": 1,
@@ -62,12 +72,15 @@
     },
     {
       "trackNum": 2,
+      "trackX": 0,
+      "trackY": 200,
       "trackWidth": 2000,
       "trackHeight": 200,
       "transportLoopLength": 240,
       "enId": "rec-enable-2",
       "menId": "midi-enable-2",
       "name": "Track 3",
+      "volume": 50,
       "recordings": [],
       "clips": [],
       "numClips": 0,
@@ -77,51 +90,51 @@
           "clipStartTime": 0,
           "clipX": 0,
           "clipY": 200,
-          "clipLength": 94.71111111111111,
+          "clipLength": 89.82222222222225,
           "clipHeight": 100,
           "index": 0,
-          "duration": 11.365333333333332,
+          "duration": 10.77866666666667,
           "midiNotes": [
             {
               "note": "C",
               "midiNum": 72,
               "duration": 0,
-              "startTime": 2.554666666666666,
+              "startTime": 2.5706666666666678,
               "message": ""
             },
             {
               "note": "E",
               "midiNum": 76,
               "duration": 0.1,
-              "startTime": 3.642666666666667,
+              "startTime": 3.120000000000001,
               "message": ""
             },
             {
               "note": "D",
               "midiNum": 74,
-              "duration": 0,
-              "startTime": 4.687999999999999,
+              "duration": 0.1,
+              "startTime": 3.6960000000000015,
               "message": ""
             },
             {
               "note": "F",
               "midiNum": 77,
-              "duration": 0.1,
-              "startTime": 5.765333333333334,
+              "duration": 0,
+              "startTime": 4.224,
               "message": ""
             },
             {
               "note": "E",
               "midiNum": 76,
-              "duration": 0,
-              "startTime": 6.853333333333332,
+              "duration": 0.2,
+              "startTime": 4.789333333333335,
               "message": ""
             },
             {
               "note": "D",
               "midiNum": 74,
-              "duration": 0,
-              "startTime": 8.847999999999999,
+              "duration": 0.30000000000000004,
+              "startTime": 6.71466666666667,
               "message": ""
             }
           ]
@@ -133,12 +146,15 @@
     },
     {
       "trackNum": 3,
+      "trackX": 0,
+      "trackY": 300,
       "trackWidth": 2000,
       "trackHeight": 300,
       "transportLoopLength": 240,
       "enId": "rec-enable-3",
       "menId": "midi-enable-3",
       "name": "Track 4",
+      "volume": 50,
       "recordings": [],
       "clips": [],
       "numClips": 0,
@@ -154,25 +170,27 @@
           "clipHeight": 100,
           "index": 0,
           "duration": 4,
+          "bpm": 120,
+          "tatums": 2,
           "ssPart": [
             {
               "matrix": [
                 1,
                 0,
-                1,
-                0,
-                1,
                 0,
                 1,
                 1,
                 0,
-                0,
+                1,
                 1,
                 0,
                 1,
+                1,
+                0,
                 0,
                 1,
-                0
+                1,
+                1
               ],
               "path": "../assets/Bass-Drum.mp3"
             },
@@ -183,15 +201,15 @@
                 0,
                 0,
                 0,
-                0,
-                0,
-                0,
                 1,
                 0,
                 1,
                 0,
                 1,
+                0,
                 1,
+                0,
+                0,
                 1,
                 0
               ],
@@ -202,18 +220,18 @@
                 0,
                 1,
                 0,
-                1,
+                0,
+                0,
                 0,
                 1,
                 0,
                 0,
                 1,
-                0,
-                0,
-                1,
                 1,
                 0,
-                1,
+                0,
+                0,
+                0,
                 0
               ],
               "path": "../assets/HH-Closed.mp3"
