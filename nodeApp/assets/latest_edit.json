@@ -19,8 +19,8 @@
       "clips": [
         {
           "trackWidth": 2000,
-          "clipStartTime": 0.12,
-          "clipX": 1,
+          "clipStartTime": 0,
+          "clipX": 0,
           "clipY": 0,
           "clipLength": 1688.6711805555556,
           "clipHeight": 100,
@@ -56,7 +56,7 @@
           "clipStartTime": 0,
           "clipX": 0,
           "clipY": 100,
-          "clipLength": 46.93333333333334,
+          "clipLength": 51.02222222222222,
           "clipHeight": 100,
           "index": 0,
           "url": "../assets/testRecording.wav",
@@ -90,54 +90,43 @@
           "clipStartTime": 0,
           "clipX": 0,
           "clipY": 200,
-          "clipLength": 89.82222222222225,
+          "clipLength": 91.19999999999999,
           "clipHeight": 100,
           "index": 0,
-          "duration": 10.77866666666667,
+          "duration": 10.943999999999999,
           "midiNotes": [
             {
               "note": "C",
               "midiNum": 72,
-              "duration": 0,
-              "startTime": 2.5706666666666678,
-              "message": ""
-            },
-            {
-              "note": "E",
-              "midiNum": 76,
               "duration": 0.1,
-              "startTime": 3.120000000000001,
-              "message": ""
-            },
-            {
-              "note": "D",
-              "midiNum": 74,
-              "duration": 0.1,
-              "startTime": 3.6960000000000015,
-              "message": ""
-            },
-            {
-              "note": "F",
-              "midiNum": 77,
-              "duration": 0,
-              "startTime": 4.224,
+              "startTime": 2.501333333333335,
               "message": ""
             },
             {
               "note": "E",
               "midiNum": 76,
               "duration": 0.2,
-              "startTime": 4.789333333333335,
+              "startTime": 4.485333333333333,
               "message": ""
             },
             {
               "note": "D",
               "midiNum": 74,
-              "duration": 0.30000000000000004,
-              "startTime": 6.71466666666667,
+              "duration": 0.6,
+              "startTime": 6.7840000000000025,
               "message": ""
             }
-          ]
+          ],
+          "osc": {
+            "oscType": "triangle",
+            "amp": 0
+          },
+          "env": {
+            "attack": 0.001,
+            "decay": 0.5,
+            "sustain": 0.3,
+            "release": 0.5
+          }
         }
       ],
       "numMidiClips": 1,
@@ -178,61 +167,61 @@
                 1,
                 0,
                 0,
+                0,
+                0,
                 1,
+                0,
                 1,
                 0,
                 1,
                 1,
                 0,
                 1,
-                1,
-                0,
                 0,
                 1,
-                1,
-                1
+                0
               ],
               "path": "../assets/Bass-Drum.mp3"
             },
             {
               "matrix": [
                 0,
-                1,
-                0,
-                0,
                 0,
                 1,
-                0,
                 1,
                 0,
-                1,
                 0,
                 1,
                 0,
                 0,
                 1,
-                0
+                0,
+                1,
+                0,
+                0,
+                1,
+                1
               ],
               "path": "../assets/Snare-Drum.mp3"
             },
             {
               "matrix": [
                 0,
-                1,
-                0,
-                0,
-                0,
-                0,
-                1,
                 0,
                 0,
                 1,
                 1,
                 0,
+                1,
+                1,
+                1,
                 0,
                 0,
+                1,
                 0,
-                0
+                0,
+                1,
+                1
               ],
               "path": "../assets/HH-Closed.mp3"
             },

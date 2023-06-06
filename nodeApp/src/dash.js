@@ -891,6 +891,8 @@ class Track
     ssClips = [];
     numSSClips = 0;
 
+    scheduledEvents = [];
+
     
 
     name = ``;
@@ -915,6 +917,8 @@ class Track
     currSoundFile = null;
 
     state = 0;
+
+    updatedClipX = 0;
     
     
     constructor(trackNumber, trackWidth, trackHeight, transportLoopLength)
@@ -1463,7 +1467,7 @@ class Track
                 var rect_height = currClip.clipHeight/79;
                 var rect_y = this.p5.map(midiNote.midiNum, 21, 100,(currClip.clipY+currClip.clipHeight), currClip.clipY);
                 var rect_width = this.p5.map(midiNote.duration,0, currClip.duration, 0, currClip.clipLength);
-                var rect_x = this.p5.map(midiNote.startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
+                var rect_x = this.p5.map(midiNote.startTime, currClip.clipStartTime, (currClip.clipStartTime + currClip.duration), currClip.clipX, (currClip.clipX + currClip.clipLength));
 
                 this.p5.rect(rect_x, rect_y, rect_width, rect_height);
             }
@@ -1498,8 +1502,8 @@ class Track
                         //console.log("BEAT FOUND");
                         var rect_y = this.p5.map(i, 0, numChannels,(currClip.clipY+currClip.clipHeight), currClip.clipY);
                         var rect_width = this.p5.map(1,0, currClip.duration, 0, currClip.clipLength);
-                        var startTime = s * (60 / (currClip.ssPart.metro.bpm * currClip.ssPart.metro.tatums));
-                        var rect_x = this.p5.map(startTime, 0, currClip.duration, currClip.clipX, (currClip.clipX + currClip.clipLength));
+                        var startTime = (s * (60 / (currClip.ssPart.metro.bpm * currClip.ssPart.metro.tatums))) + currClip.clipStartTime;
+                        var rect_x = this.p5.map(startTime, currClip.clipStartTime, (currClip.clipStartTime+currClip.duration), currClip.clipX, (currClip.clipX + currClip.clipLength));
     
                         this.p5.rect(rect_x, rect_y, 2, rect_height);
                     }
@@ -1526,6 +1530,33 @@ class Track
                 this.currLockedClip.oldX = this.currLockedClip.clipX
             }
         }
+        for(let i = 0; i < this.midiClips.length; i++)
+        {
+            if(this.midiClips[i].hover)
+            {
+                this.currLockedClip = this.midiClips[i];
+
+                this.currLockedClip.lockClip = true;
+                this.p5.fill("pink");
+                console.log("Clicked Track");
+                this.currLockedClip.xLock = this.p5.mouseX;
+                this.currLockedClip.oldX = this.currLockedClip.clipX
+            }
+        }
+        for(let i = 0; i < this.ssClips.length; i++)
+        {
+            if(this.ssClips[i].hover)
+            {
+                this.currLockedClip = this.ssClips[i];
+
+                this.currLockedClip.lockClip = true;
+                this.p5.fill("pink");
+                console.log("Clicked Track");
+                this.currLockedClip.xLock = this.p5.mouseX;
+                this.currLockedClip.oldX = this.currLockedClip.clipX;
+                this.updatedClipX = this.currLockedClip.oldX;
+            }
+        }
 
     }
 
@@ -1535,11 +1566,19 @@ class Track
         {
             var offsetX = this.p5.mouseX - this.currLockedClip.xLock;
             var newSoundWaveX = this.currLockedClip.oldX + offsetX;
-            this.currLockedClip.clipX = newSoundWaveX
+            this.currLockedClip.clipX = newSoundWaveX;
+            var oldStartTime = this.p5.map(this.updatedClipX, 0, this.trackWidth, 0, this.transportLoopLength);
             var startTime = this.p5.map(newSoundWaveX, 0, this.trackWidth, 0, this.transportLoopLength);
             this.currLockedClip.clipStartTime = startTime;
-            console.log(`OffsetX: ${offsetX}, MouseX: ${this.p5.mouseX}, xLock: ${this.currLockedClip.xLock} startTime: ${startTime}`);
-            this.clips[this.currLockedClip.index] = this.currLockedClip;
+
+            if(this.currLockedClip.TYPE == 'MIDI_CLIP'){
+                var diff = startTime - oldStartTime;
+                this.currLockedClip.shiftMidiNotes(diff);
+            }
+
+            this.updatedClipX = newSoundWaveX;
+
+            console.log(`OffsetX: ${offsetX}, MouseX: ${this.p5.mouseX}, xLock: ${this.currLockedClip.xLock} startTime: ${startTime}, oldStartTime:${oldStartTime}, oldX: ${this.currLockedClip.oldX}, Diff ${diff}`);
         }
         
     }
@@ -1549,14 +1588,39 @@ class Track
         if(this.currLockedClip != null && this.currLockedClip.lockClip){
             this.currLockedClip.lockClip = false;
             console.log(this.currLockedClip.tonePlayer);
-            this.currLockedClip.tonePlayer.unsync();
-            this.currLockedClip.tonePlayer.toMaster().sync().start(this.currLockedClip.clipStartTime);
+            if(this.currLockedClip.TYPE == 'CLIP'){
+                this.currLockedClip.tonePlayer.unsync();
+                this.currLockedClip.tonePlayer.toMaster().sync().start(this.currLockedClip.clipStartTime);
+                console.log(`New StartTime : ${this.currLockedClip.clipStartTime} `);
+                console.log(this.currLockedClip.tonePlayer.loaded);
+                this.clips[this.currLockedClip.index] = this.currLockedClip;
+
+            }else if(this.currLockedClip.TYPE == 'MIDI_CLIP'){
+                //var oldStartTime = this.p5.map(this.currLockedClip.oldX, 0, this.trackWidth, 0, this.transportLoopLength);
+
+                //this.currLockedClip.setStartTime();
+                var newStartTime = this.currLockedClip.clipStartTime;
+                //var diff = newStartTime - oldStartTime;
+                this.currLockedClip.clearSchedule();
+                //this.currLockedClip.shiftMidiNotes(diff);
+                this.currLockedClip.scheduleNotes();
+                //console.log(`Old Start Time: ${oldStartTime}`);
+                console.log(`New Start Time: ${newStartTime}`);
+                this.midiClips[this.currLockedClip.index] = this.currLockedClip;
+
+            }else{
+                this.currLockedClip.setStartTime();
+                this.currLockedClip.clearSchedule();
+                this.currLockedClip.scheduleSequence();
+                this.ssClips[this.currLockedClip.index] = this.currLockedClip;
+
+            }
+
             //Tone.Transport.clear(toneTrackId1);
             //toneTrackId1 = Tone.Transport.schedule((time) =>{
             //    toneTrack1.start();
             //}, startTime);
-            console.log(`New StartTime : ${this.currLockedClip.clipStartTime} `);
-            console.log(this.currLockedClip.tonePlayer.loaded);
+
         }
     
     }
@@ -1570,7 +1634,7 @@ class Track
 
 class Clip 
 {
-
+    TYPE = 'CLIP';
     clipStartTime = 0;
 
     clipX = 0;
@@ -1659,6 +1723,7 @@ class Clip
 
 class MidiClip
 {
+    TYPE = 'MIDI_CLIP';
     clipStartTime = 0;
 
     clipX = 0;
@@ -1678,6 +1743,7 @@ class MidiClip
 
 
     midiNotes = [];
+    scheduledNotes = [];
     synth = '';
     duration = 0;
 
@@ -1726,6 +1792,19 @@ class MidiClip
 
             clip.midiNotes.push(midiNote);
         }
+        clip.osc = {};
+        if(this.osc != null){
+            clip.osc.oscType = this.osc.getType();
+            clip.osc.amp = this.osc.getAmp();
+        }
+        clip.env = {};
+        if(this.envelope != null){
+            clip.env.attack = this.envelope.aTime;
+            clip.env.decay = this.envelope.dTime;
+            clip.env.sustain = this.envelope.sPercent;
+            clip.env.release = this.envelope.rTime;
+
+        }
 
         return clip;
     }
@@ -1760,7 +1839,9 @@ class MidiClip
         newClip.clipStartTime = clipData.clipStartTime;
         newClip.transportLoopLength = clipData.transportLoopLength;
 
+        newClip.loadMidiSynth(clipData.osc.oscType,clipData.osc.amp ,clipData.env.attack,clipData.env.decay,clipData.env.sustain, clipData.env.release);
 
+        newClip.scheduleNotes();
 
         console.log(newClip);
 
@@ -1775,6 +1856,21 @@ class MidiClip
 
     }
 
+    setStartTime()
+    {
+        this.clipStartTime = this.p5.map(this.clipX, 0, this.trackWidth, 0, this.transportLoopLength);
+    }
+
+    shiftMidiNotes(timeDiff)
+    {
+        for(let i = 0;i < this.midiNotes.length; i++)
+        {
+            this.midiNotes[i].startTime += timeDiff;
+        }
+        console.log(`LOGGING MIDI NOTES SHIFT WITH TIME DIFF ${timeDiff}`);
+        console.log(this.midiNotes);
+    }
+
     setMidiType(midiType)
     {
         if(midiType == MidiTypes.midiList.OnScreenKeyboard && OnScreenKeyboard.recordingStatus.enabled)
@@ -1783,9 +1879,26 @@ class MidiClip
             this.osc = OnScreenKeyboard.recordingStatus.osc;
             this.envelope = OnScreenKeyboard.recordingStatus.envelope;    
 
-            console.log(`Set Clip Midi Type`);
+            console.log(`LOGGING ENVELOPE`);
+            console.log(this.envelope);
         }
 
+    }
+
+    loadMidiSynth(osc_type, amp ,attack, decay, sustain, release){
+        console.log(`LOGGING oscillator type: ${osc_type}`);
+        this.osc = new p5.Oscillator(osc_type);
+        this.osc.amp(amp);
+        this.envelope = new p5.Env();
+        this.envelope.setADSR(attack, decay, sustain, release);
+    }
+    clearSchedule()
+    {
+        for(let i = 0; i < this.midiNotes.length; i++){
+            var event = this.scheduledNotes.pop();
+            console.log(`Clearing event with ID : ${event}`);
+            Tone.Transport.clear(event);
+        }
     }
 
     scheduleNotes()
@@ -1795,7 +1908,7 @@ class MidiClip
             let midiNote = this.midiNotes[i];
             let osc = this.osc;
             let envelope = this.envelope
-            Tone.Transport.schedule(function(time){
+            var event_id = Tone.Transport.schedule(function(time){
                 envelope.setADSR(0.001, 0.5, 0.3, 0.5);
                 osc.start();
                 let freq = MidiTypes.noteFreqMapping[midiNote.note];
@@ -1805,6 +1918,8 @@ class MidiClip
                 //envelope.play(osc, 0, midiNote.duration);
                 console.log(`Playing scheduled note: ${midiNote.note}`)
             }, midiNote.startTime);
+
+            this.scheduledNotes.push(event_id);
             
         }
     }
@@ -1812,6 +1927,7 @@ class MidiClip
 
 class SSClip
 {
+    TYPE = 'SS_CLIP';
     clipStartTime = 0;
 
     clipX = 0;
@@ -1835,6 +1951,8 @@ class SSClip
     p5 = null;
 
     ssPart = null;
+
+    sequenceScheduleId = 0;
 
 
     constructor(index, ssPart, trackWidth)
@@ -1904,7 +2022,10 @@ class SSClip
                     newClip.clipStartTime = clipData.clipStartTime;
                     newClip.transportLoopLength = clipData.transportLoopLength;
                     newClip.p5 = p5Object;
-                    newClip.setStartTime();
+                    //newClip.setStartTime();
+                    //p5Object.userStartAudio();
+                    //newClip.ssPart.start();
+
                     newClip.scheduleSequence();
 
                     console.log(count)
@@ -1943,12 +2064,17 @@ class SSClip
 
     }
 
+    clearSchedule()
+    {
+        Tone.Transport.clear(this.sequenceScheduleId);
+    }
+
     scheduleSequence()
     {
         var thisPart = this.ssPart;
-        var p5 = this.p5;
-        Tone.Transport.schedule(function(time){
-            p5.userStartAudio();
+        var p5Object = this.p5;
+        this.sequenceScheduleId = Tone.Transport.schedule(function(time){
+            p5Object.userStartAudio();
             
             thisPart.start();
             //envelope.play(osc, 0, midiNote.duration);
