@@ -25,6 +25,17 @@ app.get('/', function(req,res){
     res.sendFile(path.resolve('dist/dashboard.html'));
 });
 
+app.get('/curr_repo', urlencodedParser, function(req,res){
+    console.log(`Get request with data: ${req.body.user}`);
+});
+app.post('/upload_edit', urlencodedParser, function(req,res){
+    var user = req.body.user;
+    var editFile = req.body.editFile;
+    if(user != null && editFile != null)
+    {
+        console.log(`POST request for user ${user}`);
+    }
+});
 app.post('/create_repo', urlencodedParser, function(req,res){
     
     svn_client.create_new_repo(req.body.username, req.body.passwd)

@@ -1,6 +1,8 @@
 //import {React} from 'react';
 //import {ReactDOM} from 'react-dom'
 import Vue from 'vue'
+import { XStatus } from './iam';
+import { XUser } from './iam';
 //import Vue from 'https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.esm.browser.js'
 //import P5 from 'p5';
 
@@ -72,7 +74,6 @@ let noteFreqMapping = {
     'G#': 415.30,
     'A#': 466.16
 }
-
 
 
 
@@ -2394,6 +2395,14 @@ uploadButton.onclick = (e) => {
             alert("Not a valid file");
         }
         edit.loadEdit(file);
+        let req = new XMLHttpRequest();
+        let formData = new FormData();
+        var currUser = XStatus.getCookie("user");
+
+        formData.append("user", JSON.stringify(currUser));
+        formData.append("editFile", file);
+        req.open("POST", "http::/127.0.0.1:8000/upload_edit");
+        req.send(formData);
     }
 
 
@@ -2425,6 +2434,27 @@ const repoModal = new bootstrap.Modal('#repoModal', {
 });
 
 newRepoButton.onclick = () =>{
+    var currUser = XStatus.getCookie("user");
+    if(currUser != null)
+    {
+        XStatus.currUser = new XUser(currUser);
+        const url = 'http::/127.0.0.1:8000/curr_repo';
+        $.ajax({
+            type: "GET",
+            url: url,
+            data:{
+                user: currUser
+            },
+            success: function(result) {
+                console.log(`Loaded Current Repo`);
+            },
+            error: function(error){
+                console.log(`Error occured: ${error}`)
+            }
+        })
+
+        return;
+    }
     repoModal.show();
     const url = 'http://127.0.0.1:8000/create_repo'
 
@@ -2443,6 +2473,8 @@ newRepoButton.onclick = () =>{
             data: data,
             success: function(result) {
                 console.log(`Finished creating repo successfully with`);
+                var newUser = XUser(username);
+                XStatus.currUser = newUser;
             },
             error: function(error){
                 console.log(`Error occured: ${error}`)
