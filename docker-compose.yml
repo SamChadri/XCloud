@@ -17,6 +17,8 @@ services:
       - xcloud
   xcloud:
     build: ./apache
+    ports:
+      - "3690:3690"
   xdb:
     image: mongo
     ports:

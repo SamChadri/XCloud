@@ -8,6 +8,8 @@ COPY . .
 
 RUN npm install
 
+RUN apk add --no-cache subversion
+
 ENV XCLOUD_APACHE=http://xcloud:80/ 
 
 ENV XCLOUD_SVN=svn://xcloud:3690/

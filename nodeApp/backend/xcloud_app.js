@@ -2,6 +2,7 @@ const express = require('express');
 
 var path = require('path');
 var bodyParser = require('body-parser');
+var url = require('url');
 const { SVNClient } = require('./version_control');
 var urlencodedParser = bodyParser.urlencoded({ extended: false })  
 
@@ -26,15 +27,27 @@ app.get('/', function(req,res){
 });
 
 app.get('/curr_repo', urlencodedParser, function(req,res){
-    console.log(`Get request with data: ${req.body.user}`);
+    var queryData = url.parse(req.url, true).query
+    console.log(`Get request with data: ${queryData.user}`);
+    res.sendFile(path.resolve('dist/repo.html'));
 });
 app.post('/upload_edit', urlencodedParser, function(req,res){
     var user = req.body.user;
+    var password = req.body.password;
     var editFile = req.body.editFile;
+    console.log("RECIEVED POST REQUEST...");
+    console.log(req.body);
     if(user != null && editFile != null)
     {
         console.log(`POST request for user ${user}`);
+        let filePath = svn_client.writeEditFile(user, editFile);
+        svn_client.add_file(filePath, user, password);
+        svn_client.commit_changes(filePath, user, password);
+        //console.log('FILE:');
+        //console.log(editFile);
     }
+
+    res.end("success");
 });
 app.post('/create_repo', urlencodedParser, function(req,res){
     

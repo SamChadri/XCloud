@@ -1,8 +1,8 @@
 //import {React} from 'react';
 //import {ReactDOM} from 'react-dom'
 import Vue from 'vue'
-import { XStatus } from './iam';
-import { XUser } from './iam';
+import { XStatus } from './iam.js';
+import { XUser } from './iam.js';
 //import Vue from 'https://cdn.jsdelivr.net/npm/vue@2.7.14/dist/vue.esm.browser.js'
 //import P5 from 'p5';
 
@@ -2394,15 +2394,43 @@ uploadButton.onclick = (e) => {
         if(!file){
             alert("Not a valid file");
         }
-        edit.loadEdit(file);
-        let req = new XMLHttpRequest();
-        let formData = new FormData();
-        var currUser = XStatus.getCookie("user");
+        //edit.loadEdit(file);
+        console.log("Uploading to server....");
+        var fr=new FileReader();
+        fr.onload=function(e){
+            let jsonString = e.target.result;
+            var currUser = XStatus.getCookie("user");
+            var passwd = XStatus.getCookie("passwd");
 
-        formData.append("user", JSON.stringify(currUser));
-        formData.append("editFile", file);
-        req.open("POST", "http::/127.0.0.1:8000/upload_edit");
-        req.send(formData);
+            if(currUser == null || passwd == null)
+            {
+                alert("Please login");
+                return;
+            }
+
+            let upload_data = {
+                user: currUser,
+                password: passwd,
+                editFile: jsonString
+            };
+            
+            const url = 'http://127.0.0.1:8000/upload_edit';
+
+            $.ajax({
+                type: "POST",
+                url: url,
+                data: upload_data,
+                success: function(result) {
+                    console.log(`Uploaded file with result: ${result}`);
+                },
+                error: function(error){
+                    console.log(`Error occured: ${error}`)
+                }
+            });
+
+        }
+        fr.readAsText(file);
+        
     }
 
 
@@ -2451,7 +2479,7 @@ newRepoButton.onclick = () =>{
             error: function(error){
                 console.log(`Error occured: ${error}`)
             }
-        })
+        });
 
         return;
     }
@@ -2473,11 +2501,13 @@ newRepoButton.onclick = () =>{
             data: data,
             success: function(result) {
                 console.log(`Finished creating repo successfully with`);
-                var newUser = XUser(username);
-                XStatus.currUser = newUser;
+                //SEND COOKIES FROM SERVER DOWN LATER;
+                XStatus.setCookie("user", username, 1);
+                XStatus.setCookie("passwd", password, 1);
             },
             error: function(error){
-                console.log(`Error occured: ${error}`)
+                console.log(`Error occured...`);
+                console.log(error);
             }
           });
     }

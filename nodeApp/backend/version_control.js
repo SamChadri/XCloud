@@ -56,21 +56,58 @@ class SVNClient {
             console.log(`RESPONSE is: `);
             console.log(response.data);
         }
-        fs.mkdirSync(workingDirectory);
+        //fs.mkdirSync(workingDirectory);
+        this.checkout_user(user, password)
 
         
     }
 
-    async 
-
-
-    checkout_user(user, url)
+    writeEditFile(user, editData)
     {
-        var workingDirectory = `./xcloud/users/${user}`;
-        var userRepo = this.REPO_URL + `/xcloud/users/`
+        var workingDirectoryFile = `./x-cloud/users/${user}/latest_edit.json`;
+        fs.writeFileSync(workingDirectoryFile, editData);
+        return workingDirectoryFile;
+
+    }
+
+    add_file(file, user, passwd)
+    {
+        svn.commands.add(file, {
+            username: user,
+            password: passwd
+        },function(err){
+            if(err)
+            {
+                console.log(`version_control::add_file::Error occurred: ${err}`);
+            }
+            console.log("version_control::add_file:: Added file complete");
+        })
+    }
+
+    commit_changes(files, user, passwd)
+    {
+        svn.commands.commit(files, {
+            username: user,
+            password: passwd,
+            params: [ '-m "New Commit"' ],
+        },function(err){
+            if(err)
+            {
+                console.log(`version_control::commit_changes::Error occurred: ${err}`);
+            }
+            console.log("version_control::commit_changes:: Changes Sucessfully Committed");
+        })
+    }
+    checkout_user(user, passwd)
+    {
+        var workingDirectory = `./x-cloud/users/${user}`;
+        var userRepo = this.REPO_URL + `/${user}`
         fs.mkdirSync(workingDirectory);
-        svn.commands.checkout(this.REPO_URL, workingDirectory,function(err){
-            console.log("Checkout complete");
+        svn.commands.checkout(userRepo, workingDirectory,{
+            username: user,
+            password: passwd,
+        },function(err){
+            console.log("version_control::checkout_user::Checkout complete");
         } );
         //I dont know if each user will have its own url yet. Will test that out.
     }

@@ -6,8 +6,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV USER=user
 
 
-RUN apt update &&\
-    apt-get upgrade &&\
+RUN apt update -y &&\
+    apt-get upgrade -y &&\
     apt-get install -y apache2 &&\
     apt-get install -y apache2-utils &&\
     apt-get install subversion libapache2-mod-svn libsvn-dev subversion-tools -y &&\
