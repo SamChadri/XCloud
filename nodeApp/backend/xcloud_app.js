@@ -28,7 +28,17 @@ app.get('/', function(req,res){
 
 app.get('/curr_repo', urlencodedParser, function(req,res){
     var queryData = url.parse(req.url, true).query
-    console.log(`Get request with data: ${queryData.user}`);
+    console.log(`Get request with data:`);
+    console.log(queryData.user);
+    svn_client.list_repo(queryData.user, queryData.password, function(data)
+    {
+        console.log("Sending SVN::List callback Data");
+        console.log(data);
+        res.end(data)
+    });
+});
+
+app.get('/list_repo',  urlencodedParser, function(req,res){
     res.sendFile(path.resolve('dist/repo.html'));
 });
 app.post('/upload_edit', urlencodedParser, function(req,res){
@@ -41,8 +51,8 @@ app.post('/upload_edit', urlencodedParser, function(req,res){
     {
         console.log(`POST request for user ${user}`);
         let filePath = svn_client.writeEditFile(user, editFile);
-        svn_client.add_file(filePath, user, password);
-        svn_client.commit_changes(filePath, user, password);
+        svn_client.add_file(filePath, user, password, true);
+        //svn_client.commit_changes(filePath, user, password);
         //console.log('FILE:');
         //console.log(editFile);
     }

@@ -2465,23 +2465,7 @@ newRepoButton.onclick = () =>{
     var currUser = XStatus.getCookie("user");
     if(currUser != null)
     {
-        XStatus.currUser = new XUser(currUser);
-        const url = 'http::/127.0.0.1:8000/curr_repo';
-        $.ajax({
-            type: "GET",
-            url: url,
-            data:{
-                user: currUser
-            },
-            success: function(result) {
-                console.log(`Loaded Current Repo`);
-            },
-            error: function(error){
-                console.log(`Error occured: ${error}`)
-            }
-        });
-
-        return;
+       window.location.href = 'http://127.0.0.1:8000/list_repo'
     }
     repoModal.show();
     const url = 'http://127.0.0.1:8000/create_repo'

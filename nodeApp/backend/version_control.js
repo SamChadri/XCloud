@@ -2,6 +2,7 @@ const svn = require('node-svn-ultimate');
 const {config} = require("dotenv") ;
 const fs = require('fs');
 const axios = require('axios');
+const { exit } = require('process');
 
 const TAG = `svn_client`;
 
@@ -70,8 +71,9 @@ class SVNClient {
 
     }
 
-    add_file(file, user, passwd)
+    add_file(file, user, passwd, commit=false)
     {
+        var instance = this;
         svn.commands.add(file, {
             username: user,
             password: passwd
@@ -79,8 +81,45 @@ class SVNClient {
             if(err)
             {
                 console.log(`version_control::add_file::Error occurred: ${err}`);
+                exit(1);
             }
             console.log("version_control::add_file:: Added file complete");
+            if(commit)
+            {
+                console.log("version_constrol::add_file::Executing commit callback");
+
+                instance.commit_changes(file, user, passwd);
+            }
+
+        })
+    }
+
+    list_repo(user, passwd, callback=null)
+    {
+        var userRepo = this.REPO_URL + `/${user}`;
+        svn.commands.list(userRepo,{
+            username: user,
+            password: passwd,
+        }, function(err, result){
+            if(err)
+            {
+                console.log(`version_control::list_repo::Error occurred: ${err}`);
+                exit(1);  
+            }
+            console.log(`version_control::list_repo:: List of current repo items`);
+            console.log(result);
+
+            if(callback)
+            {
+                var data = {};
+                data.name = result.list.entry.name;
+                data.size = result.list.entry.size;
+                data.commit_info = result.list.entry.commit;
+                var stringData = JSON.stringify(data);
+                callback(stringData);
+
+            }
+
         })
     }
 
